@@ -1,0 +1,1 @@
+python "c:\Users\gabri\Documents\GitHub\lookingGlass\testFileOpener.py" %*
