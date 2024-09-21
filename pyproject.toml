@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "glass"
+version = "0.0.1"
+description = "A file manager that is nice to use"
+authors = [{name = "Gabriel H"}]
+dependencies = [
+    "click",
+    "click_prompt"
+]
+
+[project.scripts]
+glass = "glass.__main__:cli"

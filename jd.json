@@ -1,0 +1,250 @@
+{
+    "metaData": {
+        "createdUTC": 1726901006
+    },
+    "IDs": {
+        "00": {
+            "numericalID": "00",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\00 - System Design",
+            "type": "area",
+            "descriptor": "System Design",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "10": {
+            "numericalID": "10",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\10 - Personal",
+            "type": "area",
+            "descriptor": "Personal",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "20": {
+            "numericalID": "20",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science",
+            "type": "area",
+            "descriptor": "Political Science",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "21": {
+            "numericalID": "21",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year",
+            "type": "category",
+            "descriptor": "First Year",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "21.01": {
+            "numericalID": "21.01",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year\\21.01 - Introduction to Political Science",
+            "type": "subfolder",
+            "descriptor": "Introduction to Political Science",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "21.01.01": {
+            "numericalID": "21.01.01",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year\\21.01 - Introduction to Political Science\\21.01.01 - Essay on Research Methods",
+            "type": "project",
+            "descriptor": "Essay on Research Methods",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "21.01.01.A1": {
+            "numericalID": "21.01.01.A1",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year\\21.01 - Introduction to Political Science\\21.01.01 - Essay on Research Methods\\21.01.01.A1 - Essay on Research Methods.odt",
+            "type": "project",
+            "descriptor": "Essay on Research Methods.odt",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": 1
+        },
+        "21.01.01.A2": {
+            "numericalID": "21.01.01.A2",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year\\21.01 - Introduction to Political Science\\21.01.01 - Essay on Research Methods\\21.01.01.A2 - Essay on Research Methods.odt",
+            "type": "project",
+            "descriptor": "Essay on Research Methods.odt",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": 2
+        },
+        "21.01.01.B2": {
+            "numericalID": "21.01.01.B2",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year\\21.01 - Introduction to Political Science\\21.01.01 - Essay on Research Methods\\21.01.01.B2 - Essay on Research Methods.odt",
+            "type": "project",
+            "descriptor": "Essay on Research Methods.odt",
+            "storageLocation": "A",
+            "revisionStage": "B",
+            "revisionCount": 2
+        },
+        "21.01.02": {
+            "numericalID": "21.01.02",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year\\21.01 - Introduction to Political Science\\21.01.02 - America Report",
+            "type": "project",
+            "descriptor": "America Report",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "21.01.02.A1": {
+            "numericalID": "21.01.02.A1",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year\\21.01 - Introduction to Political Science\\21.01.02 - America Report\\21.01.02.A1 - Essay on Research Methods.odt",
+            "type": "project",
+            "descriptor": "Essay on Research Methods.odt",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": 1
+        },
+        "21.01.02.A2": {
+            "numericalID": "21.01.02.A2",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year\\21.01 - Introduction to Political Science\\21.01.02 - America Report\\21.01.02.A2 - Essay on Research Methods.odt",
+            "type": "project",
+            "descriptor": "Essay on Research Methods.odt",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": 2
+        },
+        "21.01.02.B1": {
+            "numericalID": "21.01.02.B1",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year\\21.01 - Introduction to Political Science\\21.01.02 - America Report\\21.01.02.B1 - Essay on Research Methods.odt",
+            "type": "project",
+            "descriptor": "Essay on Research Methods.odt",
+            "storageLocation": "A",
+            "revisionStage": "B",
+            "revisionCount": 1
+        },
+        "21.01.04": {
+            "numericalID": "21.01.04",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year\\21.01 - Introduction to Political Science\\21.01.04 - Programming",
+            "type": "project",
+            "descriptor": "Programming",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "A21.01.04.A1": {
+            "numericalID": "21.01.04.A1",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year\\21.01 - Introduction to Political Science\\21.01.04 - Programming\\A21.01.04.A1 - Essay on Research Methods.odt",
+            "type": "project",
+            "descriptor": "Essay on Research Methods.odt",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": 1
+        },
+        "21.01.04.A2": {
+            "numericalID": "21.01.04.A2",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year\\21.01 - Introduction to Political Science\\21.01.04 - Programming\\21.01.04.A2 - Essay on Research Methods.odt",
+            "type": "project",
+            "descriptor": "Essay on Research Methods.odt",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": 2
+        },
+        "21.01.04.B1": {
+            "numericalID": "21.01.04.B1",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year\\21.01 - Introduction to Political Science\\21.01.04 - Programming\\21.01.04.B1 - Essay on Research Methods.odt",
+            "type": "project",
+            "descriptor": "Essay on Research Methods.odt",
+            "storageLocation": "A",
+            "revisionStage": "B",
+            "revisionCount": 1
+        },
+        "21.02": {
+            "numericalID": "21.02",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\21 - First Year\\21.02 - Introduction to Philosophy",
+            "type": "subfolder",
+            "descriptor": "Introduction to Philosophy",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "22": {
+            "numericalID": "22",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\22 - Second Year",
+            "type": "category",
+            "descriptor": "Second Year",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "23": {
+            "numericalID": "23",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\23 - Third Year",
+            "type": "category",
+            "descriptor": "Third Year",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "24": {
+            "numericalID": "24",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\20 - Political Science\\24 - Fourth Year",
+            "type": "category",
+            "descriptor": "Fourth Year",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "30": {
+            "numericalID": "30",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\30 - Data Analytics",
+            "type": "area",
+            "descriptor": "Data Analytics",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "31": {
+            "numericalID": "31",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\30 - Data Analytics\\31 - First Year",
+            "type": "category",
+            "descriptor": "First Year",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "32": {
+            "numericalID": "32",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\30 - Data Analytics\\32 - Second Year",
+            "type": "category",
+            "descriptor": "Second Year",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "33": {
+            "numericalID": "33",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\30 - Data Analytics\\33 - Third Year",
+            "type": "category",
+            "descriptor": "Third Year",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "34": {
+            "numericalID": "34",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\30 - Data Analytics\\34 - Fourth Year",
+            "type": "category",
+            "descriptor": "Fourth Year",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        },
+        "40": {
+            "numericalID": "40",
+            "path": "C:\\Users\\gabri\\Documents\\Sample Uni File Structure\\40 - Obsidian Vault",
+            "type": "area",
+            "descriptor": "Obsidian Vault",
+            "storageLocation": "A",
+            "revisionStage": "A",
+            "revisionCount": -1
+        }
+    }
+}
