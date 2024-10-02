@@ -1,7 +1,8 @@
 import os
 import re
-import time
 import json
+from datetime import datetime
+import time
 
 class pathID:
     def __init__(self, idString, path, doValidation, **kwargs):
@@ -21,10 +22,11 @@ class pathID:
 
         if doValidation:
             self.detectIDContext()
-            correctPath = self.validatePath()
-            if not correctPath['validPath']:
-                self.idType = 'invalid'
-                self.descriptor = correctPath['desc']
+            if self.idType != "invalid":
+                correctPath = self.validatePath()
+                if not correctPath['validPath']:
+                    self.idType = 'invalid'
+                    self.descriptor = correctPath['desc']
 
     def detectIDContext(self):
         # Determine the level of the ID (area, catergory, subfolder, project or invalid)
@@ -33,6 +35,7 @@ class pathID:
         
         if len(self.idText) < 2:
             self.idType = "invalid"
+            self.descriptor = "ID is too short"
             return
 
         if not numbers.match(self.idText):
@@ -144,12 +147,11 @@ class pathID:
             print(f"Revision: {self.revision}")
    
 
-def getIDList(fsPath):
+def generateIDList(fsPath):
     # Checks to find all the IDs
     # TODO Maybe recursion?
 
     IDList, invalidIDList = getSubIDs(fsPath)
-
     for IDType in ["area", "category", "subfolder", "project"]:
         for itemID in IDList:
             if itemID.idType == IDType:
@@ -159,6 +161,7 @@ def getIDList(fsPath):
                 # Paths with subfolders cannot be invalid
                 if IDType != "subfolder":
                     invalidIDList = invalidIDList + invalidIDs
+
 
     return IDList, invalidIDList
 
@@ -178,11 +181,11 @@ def getSubIDs(fsPath):
             else:
                 invalidIDs.append(thisID)
         except ValueError:
-            thisID = pathID("", folder.path, doValidation=False)
-            invalidIDs.append(thisID)
+            if "." not in folder.path:
+                thisID = pathID("", folder.path, doValidation=False, desc="Invalid Folder Name, no discernable ID")
+                invalidIDs.append(thisID)
     
     return ids, invalidIDs
-
 
 def exportIDlist(IDList, outputPath):
     # Exports all the IDs to a .json file
@@ -205,47 +208,71 @@ def exportIDlist(IDList, outputPath):
     with open(f"{outputPath}", "w", encoding="utf-8") as outputFile:
         json.dump(outputDict, outputFile, indent=4)
 
-if __name__ == "__main__":
-    # With the exception of the ID checking, this is just driver code
-    action = "input"
-
-    storageLabels = {"A": "C:/", "B": "Zotero", "C": "Google Drive"}
-    revisionLabels = {"A": "Planning", "B": "Working Doc", "C": "Editing", "D": "Submission"}
-    if action == "export":
-        IDList, invalidIDList = getIDList("C:/Users/gabri/Documents/Sample Uni File Structure")
-
-        # Detect if any IDs are the same
-        pastIDs = []
-        equalIDs = []
-        for thisID in IDList:
-            if thisID.idText in pastIDs:
-                equalIDs.append([thisID, IDList[pastIDs.index(thisID.idText)]])
-            pastIDs.append(thisID.idText)
-
-        # Alert invalid IDs
-        for invalidID in invalidIDList:
-            if invalidID.idText != "":
-                pass
-                print(f"{invalidID.idText}\n{invalidID.descriptor}\n")
-
-        exportIDlist(IDList, "./jd.json")
-    
-    elif action == "input":
-        IDList = []
-        with open("./jd.json", "r", encoding="utf-8") as IDFile:
-            rawData = json.load(IDFile)
-            for key in rawData["IDs"].keys():
-                thisID = rawData["IDs"][key]
-                IDList.append(
-                    pathID(
-                        key,
-                        thisID["path"],
-                        False,
-                        idType=thisID["type"],
-                        numericalID=thisID["numericalID"],
-                        desc=thisID["descriptor"],
-                        storage=thisID["storageLocation"],
-                        revision=thisID["revisionCount"],
-                        revisionStage=thisID["revisionStage"]
-                    )
+def loadIDDict(rootPath):
+    IDDict = {}
+    with open(os.path.join(rootPath, ".glass/data/IDPaths.json"), "r", encoding="utf-8") as IDFile:
+        rawData = json.load(IDFile)
+        
+        for key in rawData["IDs"].keys():
+            thisID = rawData["IDs"][key]
+            IDDict[key] = pathID(
+                    key,
+                    thisID["path"],
+                    False,
+                    idType=thisID["type"],
+                    numericalID=thisID["numericalID"],
+                    desc=thisID["descriptor"],
+                    storage=thisID["storageLocation"],
+                    revision=thisID["revisionCount"],
+                    revisionStage=thisID["revisionStage"]
                 )
+    return IDDict
+
+def doBackgroundTasks(rootPath, command, version):
+    # Clear Log File
+    logFile = open(os.path.join(rootPath, ".glass/logs/background.txt"), "w")
+    logFile.write("w+")
+    logFile.close()
+
+    # Write Metadata to Log file
+    logFile = open(os.path.join(rootPath, ".glass/logs/background.txt"), "w+")
+    logFile.write(f"{datetime.now().isoformat()} INFO Starting BACKGROUND TASKS\n")
+    logFile.write(f"{datetime.now().isoformat()} INFO version={version}\n")
+    logFile.write(f"{datetime.now().isoformat()} INFO command={command}\n")
+    logFile.write(f"{datetime.now().isoformat()} INFO reading data from {rootPath}\n")
+
+    # Load IDS
+    IDList, invalidIDList = generateIDList(rootPath)
+    logFile.write(f"{datetime.now().isoformat()} INFO found {len(IDList)} valid IDs\n")
+
+    # Detect if any IDs are the same
+    scannedIDs = []
+    equalIDs = []
+    for thisID in IDList:
+        if thisID.idText in scannedIDs:
+            equalIDs.append([thisID, IDList[scannedIDs.index(thisID.idText)]])
+        scannedIDs.append(thisID.idText)
+    
+    
+    # Print Warning about Equivalent IDs
+    if len(equalIDs) != 0:
+        logFile.write(f"{datetime.now().isoformat()} WARN found {len(equalIDs)} equal IDs\n")
+        for copiedID in equalIDs:
+            logFile.write(f"{datetime.now().isoformat()}   WARN {copiedID[0].path} and {copiedID[1].path} have an equivalent ID\n")
+
+    # Print warning about invalid IDs
+    if len(invalidIDList) != 0:
+        logFile.write(f"{datetime.now().isoformat()} WARN found {len(invalidIDList)} invalid IDs\n")
+        for invalidID in invalidIDList:
+            logFile.write(f"{datetime.now().isoformat()}   WARN {invalidID.path} is invalid")
+            if invalidID.descriptor == "":
+                logFile.write(" with no descriptor\n")
+            else:
+                logFile.write(f" because {invalidID.descriptor}\n")
+
+    logFile.write(f"{datetime.now().isoformat()} INFO Writing data to {rootPath}/.glass/data/IDPaths.json\n")
+    exportIDlist(IDList, os.path.join(rootPath, ".glass/data/IDPaths.json"))
+    logFile.write(f"{datetime.now().isoformat()} INFO Completed BACKGROUND TASKS\n")
+
+
+        

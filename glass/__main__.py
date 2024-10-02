@@ -1,18 +1,116 @@
 import click
+import os
+from dotenv_vault import load_dotenv
+import sys
+from importlib.metadata import version
+import json
+
 from . import project
 from . import workspace
 from . import standin
+from . import util
+
 
 @click.group()
-def cli():
-    click.echo("LOAD IDs")
-    pass
+@click.pass_context
+def cli(ctx):
+    # Load Config file
+    load_dotenv()
+    rootFolder = os.getenv("root_path")
+    ctx.obj = {
+        "root": rootFolder, 
+        "ids": util.loadIDDict(rootFolder)
+    }
+
 
 @cli.command('open')
-def openID():
+@click.argument("id")
+@click.option("printPath", "--print", default=False, is_flag=True)
+@click.option("noBackground", "--no-background", default=False, is_flag=True)
+@click.option("quiet", "--quiet", default=False, is_flag=True)
+@click.option("jsonOutput", "--json", default=False, is_flag=True)
+@click.pass_context
+def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=True):
     """Open a specific id"""
-    click.echo("OPENING ID")
+    try: # Find Path that corresponds to ID
+        openPath = ctx.obj['ids'][id].path
+    
+    except KeyError: # If ID Doesn't exist
+        # Run the code a second time to allow the background check to find new IDs
+        if doReccurance:
+            if not jsonOutput and not quiet:
+                click.echo("ID is not present in the cached file, regenerating Cache")
+            
+            util.doBackgroundTasks(ctx.obj['root'], " ".join(sys.argv), version('glass')) # Make the JSON file again
+            ctx.obj['ids'] = util.loadIDDict(ctx.obj['root']) # Load the JSON file into the context again
+            
+            # Re-run current command with the new context 
+            ctx.invoke(openID, id=id, printPath=printPath, quiet=quiet, jsonOutput=jsonOutput, doReccurance=False) 
 
+        else:
+            # This runs if the function has been called recursively
+            if jsonOutput:
+                click.echo(json.dumps({
+                "status": "failure",
+                "data": "",
+                "reason ": f"{id} is not available within {ctx.obj['root']}"
+                }))
+            else:
+                click.echo(f"{id} is not available within {ctx.obj['root']}")
+        return
+
+
+    if printPath == False:
+        click.launch(openPath)
+    elif quiet == False and jsonOutput == False: # Print the path to terminal
+        click.echo(openPath)
+    elif quiet == False and jsonOutput == True: # Print data to terminal in JSON Format
+        click.echo(json.dumps({
+            "status": "success",
+            "data": ctx.obj['root'],
+            "reason ": ""
+        }))
+
+    if not noBackground:
+        util.doBackgroundTasks(ctx.obj['root'], " ".join(sys.argv), version('glass'))
+
+
+@cli.command("list")
+@click.option("id", "--id")
+@click.option("jsonOutput", "--json", default=False, is_flag=True)
+@click.pass_context
+def listIDs(ctx, id, jsonOutput):
+    idLevels = ['area', 'category', 'subfolder', 'project']
+    titles = []
+    searchDepth = 0
+    if id != None: 
+        searchID = util.pathID(id, "", True)
+        if searchID.idType == "invalid":
+            raise Exception("The ID provided to the ID flag is invalid")
+        searchDepth = idLevels.index(searchID.idType)
+        
+
+    idsList = ctx.obj['ids'].keys()
+    for thisIDText in idsList:
+        thisID = ctx.obj['ids'][thisIDText]
+        idDepth = idLevels.index(thisID.idType)
+        # Check if ID within parent ID
+        try:
+            if id == None and thisID.revision == -1:
+                if jsonOutput:
+                    titles.append(f"{thisID.idText} - {thisID.descriptor}")
+                else:
+                    click.echo(f"{'| ' * (idDepth - searchDepth)}{thisID.idText} - {thisID.descriptor}")  
+            if thisID.getHigherLevel(idLevels[searchDepth]) == searchID.idText and thisID.revision == -1:    
+                if jsonOutput:
+                    titles.append(f"{thisID.idText} - {thisID.descriptor}")
+                else:
+                    click.echo(f"{'| ' * (idDepth - searchDepth)}{thisID.idText} - {thisID.descriptor}")  
+        except Exception:
+            pass 
+    
+    if jsonOutput:
+        click.echo(json.dumps(titles))
 
 # Projects Commands
 @cli.group("project")

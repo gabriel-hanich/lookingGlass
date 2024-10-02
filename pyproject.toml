@@ -9,7 +9,8 @@ description = "A file manager that is nice to use"
 authors = [{name = "Gabriel H"}]
 dependencies = [
     "click",
-    "click_prompt"
+    "click_prompt",
+    "python-dotenv"
 ]
 
 [project.scripts]
