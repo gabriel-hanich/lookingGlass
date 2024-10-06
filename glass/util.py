@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 import time
 
+
 class pathID:
     def __init__(self, idString, path, doValidation, **kwargs):
         self.path = path.replace("/", "\\") # The path to the folder 
@@ -18,7 +19,7 @@ class pathID:
         self.revision = kwargs.get("revision", -1) # The current revision (only applicable if it's a project) 
         self.revisionStage = kwargs.get("revisionStage", "A")
 
-        self.levelDict = {"area": 0, "category": 1, "subfolder": 2, "project": 3}
+        self.levelDict = {"area": 0, "category": 1, "subfolder": 2, "project": 3, "child-project": 4}
 
         if doValidation:
             self.detectIDContext()
@@ -91,6 +92,7 @@ class pathID:
                 if (not numbers.match(projectID[-2])) and numbers.match(projectID[-1]):
                     self.revisionStage = self.idText[-2]
                     self.revision = int(self.idText[-1])
+                    self.idType = "child-project"
                 else:
                     self.idType = "invalid"
                     self.descriptor = "Invalid Project ID, Either you have a 2 digit version number or no Revision Letter"
@@ -152,7 +154,7 @@ def generateIDList(fsPath):
     # TODO Maybe recursion?
 
     IDList, invalidIDList = getSubIDs(fsPath)
-    for IDType in ["area", "category", "subfolder", "project"]:
+    for IDType in ["area", "category", "subfolder", "project", "project-child"]:
         for itemID in IDList:
             if itemID.idType == IDType:
                 validIDs, invalidIDs = getSubIDs(itemID.path)
@@ -162,6 +164,7 @@ def generateIDList(fsPath):
                 if IDType != "subfolder":
                     invalidIDList = invalidIDList + invalidIDs
 
+    IDList = assignRevisions(IDList)
 
     return IDList, invalidIDList
 
@@ -226,7 +229,28 @@ def loadIDDict(rootPath):
                     revision=thisID["revisionCount"],
                     revisionStage=thisID["revisionStage"]
                 )
+    
+    
     return IDDict
+
+def assignRevisions(idList):
+    # Determine the revision of every project based on it's child IDs
+    for thisID in idList:
+        if thisID.idType == "project" and thisID.revision == -1:
+            childIDs = []
+            for subID in idList:
+                try:
+                    if subID.getHigherLevel("project") == thisID.numericalID.strip() and subID.revision != -1:
+                        childIDs.append(subID)
+                except Exception:
+                    pass
+            
+            childIDs.sort(key=lambda x: x.numericalID)
+
+            thisID.revision = childIDs[-1].revision
+            thisID.revisionStage = childIDs[-1].revisionStage
+    
+    return idList
 
 def doBackgroundTasks(rootPath, command, version):
     # Clear Log File
@@ -273,6 +297,3 @@ def doBackgroundTasks(rootPath, command, version):
     logFile.write(f"{datetime.now().isoformat()} INFO Writing data to {rootPath}/.glass/data/IDPaths.json\n")
     exportIDlist(IDList, os.path.join(rootPath, ".glass/data/IDPaths.json"))
     logFile.write(f"{datetime.now().isoformat()} INFO Completed BACKGROUND TASKS\n")
-
-
-        
