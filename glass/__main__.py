@@ -96,7 +96,12 @@ def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=Tru
         }))
 
     if not noBackground:
-        util.doBackgroundTasks(ctx.obj['root'], " ".join(sys.argv), version('glass'))
+        util.doBackgroundTasks(
+            ctx.obj['root'],
+            ctx.obj['metafiles'],
+            " ".join(sys.argv), 
+            version('glass'),
+        )
 
 
 @cli.command("list")

@@ -2,6 +2,8 @@ import click
 from . import util
 import os
 from datetime import datetime
+import sys
+from importlib.metadata import version
 
 revisionStages = ["planning", "working-document", "editing", "submission"]
 
@@ -26,6 +28,8 @@ class Project:
         # TODO Double check childIDs list is valid
         # Ensure Meta path exists
         if not os.path.isfile(self.metaFilePath):
+            if self.metaFilePath == "":
+                return [False, f"There was no connected metafile in the markdown path"]
             return [False, f"The meta file located at {self.metaFilePath} does not exist"]
         
         # Ensure meta path points to .md file
@@ -44,10 +48,14 @@ class Project:
     
     def updateMetaFileRevisions(self):
         # Update the meta file to reflect new revision
+        modified = False
         if self.properties["revision-stage"].replace("-", " ") != self.revisionStages[self.id.revisionStage]:
             self.modifyPair("revision-stage", self.revisionStages[self.id.revisionStage].replace(" ", "-"))
-        if self.properties["revision-number"].replace('"', '') != str(self.id.revision):
+            modified = True
+        if self.properties["revision-number"].replace('"', '') != str(self.id.revision) and self.id.revision != -1:
             self.modifyPair("revision-number", self.id.revision)
+            modified = True
+        return modified
     
     def modifyPair(self, propertyKey, newPropertyValue):
         # Change the value of a given property
@@ -71,7 +79,7 @@ class Project:
                         thisLine = f'{propertyKey}: false\n'
 
                 elif type(newPropertyValue) == int:
-                    thisLine = f'{propertyKey}: "{newPropertyValue}"\n'
+                    thisLine = f'{propertyKey}: {newPropertyValue}\n'
                 elif type(newPropertyValue) == datetime:
                     thisLine = f'{propertyKey}: {newPropertyValue.strftime("%Y-%m-%d")}\n'
                 else:
@@ -131,9 +139,9 @@ def readFileProperties(metaFilePath):
             data[key] = value
     return data
 
-def generateProjectList(idDict, metaFilePath):
+def generateProjectList(idList, metaFilePath):
     # Generates a list of Projects based on their IDs
-    projectIDs = [idDict[id] for id in idDict.keys() if idDict[id].idType == "project"]
+    projectIDs = [thisId for thisId in idList if thisId.idType == "project"]
     
     # Get list of all the metafiles
     metaFiles = {}
@@ -151,9 +159,9 @@ def generateProjectList(idDict, metaFilePath):
     for projectID in projectIDs:
         # Find Child IDs
         childIDs = []
-        for child in idDict.keys():
-            if child[:8] == projectID.numericalID and child != projectID.numericalID:
-                childIDs.append(idDict[child])
+        for child in idList:
+            if child.idText[:8] == projectID.numericalID and child != projectID.numericalID:
+                childIDs.append(child)
         
         try:
             projects.append(Project(projectID, metaFiles[projectID.numericalID.strip()], childIDs))
@@ -230,6 +238,7 @@ def newProj(ctx, id, title, revisionStage, revisionNumber, dueDate, className, i
     # Ensure the project ID does not already exist
     for project in ctx.obj['projects']['valid'] + ctx.obj['projects']['invalid']:
         if project.id.idText == id:
+            util.doBackgroundTasks(ctx.obj['root'], " ".join(sys.argv), version('glass'))
             raise click.ClickException(f"This ID already exists at {project.id.path}")
 
     subfolderID = ctx.obj['ids'][testID.getHigherLevel("subfolder")]
@@ -248,7 +257,7 @@ def newProj(ctx, id, title, revisionStage, revisionNumber, dueDate, className, i
         if not click.confirm("Confirm", default=True):
             return
 
-    # os.mkdir(folderPath)
+    os.mkdir(folderPath)
     generateMetaFile(
         ctx.obj["metafiles"], 
         ctx.obj["templatePath"], 
@@ -260,6 +269,9 @@ def newProj(ctx, id, title, revisionStage, revisionNumber, dueDate, className, i
         className,
         imageURL
     )
+
+    # Do Background Tasks to add newly created project to the stack
+    util.doBackgroundTasks(ctx.obj['root'], " ".join(sys.argv), version('glass'))
 
     return
 
