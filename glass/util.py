@@ -149,15 +149,15 @@ class pathID:
             print(f"Revision: {self.revision}")
    
 
-def generateIDList(fsPath):
+def generateIDList(fsPath, excludedList):
     # Checks to find all the IDs
     # TODO Maybe recursion?
 
-    IDList, invalidIDList = getSubIDs(fsPath)
+    IDList, invalidIDList = getSubIDs(fsPath, excludedList)
     for IDType in ["area", "category", "subfolder", "project", "project-child"]:
         for itemID in IDList:
             if itemID.idType == IDType:
-                validIDs, invalidIDs = getSubIDs(itemID.path)
+                validIDs, invalidIDs = getSubIDs(itemID.path, excludedList)
                 IDList = IDList + validIDs
 
                 # Paths with subfolders cannot be invalid
@@ -168,23 +168,22 @@ def generateIDList(fsPath):
 
     return IDList, invalidIDList
 
-
-def getSubIDs(fsPath):
+def getSubIDs(fsPath, excludedList):
     # Find all subIDs in a path
     dirStructure = os.scandir(fsPath)
-
     ids, invalidIDs = [], []
     for folder in dirStructure:
         try:
             endText = folder.path.split("\\")[-1]
-            areaID, desc = endText.split(" - ")
-            thisID = pathID(areaID, folder.path, doValidation=True, desc=desc)
-            if thisID.idType != "invalid":
-                ids.append(thisID)
-            else:
-                invalidIDs.append(thisID)
+            if endText.lower() not in excludedList:
+                areaID, desc = endText.split(" - ")
+                thisID = pathID(areaID, folder.path, doValidation=True, desc=desc)
+                if thisID.idType != "invalid":
+                    ids.append(thisID)
+                else:
+                    invalidIDs.append(thisID)
         except ValueError:
-            if "." not in folder.path:
+            if endText.lower() not in excludedList:
                 thisID = pathID("", folder.path, doValidation=False, desc="Invalid Folder Name, no discernible ID")
                 invalidIDs.append(thisID)
     
@@ -256,26 +255,14 @@ def assignRevisions(idList):
     
     return idList
 
-def doBackgroundTasks(rootPath, metaPath, command, version):
-    # Clear Log File
-    indent = " "*1
 
-    logFile = open(os.path.join(rootPath, ".glass/logs/background.txt"), "w")
-    logFile.write("w+")
-    logFile.close()
-
-    # Write Metadata to Log file
-    logFile = open(os.path.join(rootPath, ".glass/logs/background.txt"), "w+")
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Starting BACKGROUND TASKS\n")
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO version={version}\n")
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO command={command}\n")
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO reading data from {rootPath}\n")
-
-    # Load IDS
+def readFileSystem(logFile, rootPath, excludedList):
+    # Reads the files from the file system and save paths to each ID
+    indent = " "
     logFile.write(f"{datetime.now().isoformat()}{indent}INFO LOADING IDs\n")
 
     indent = " "*3
-    IDList, invalidIDList = generateIDList(rootPath)
+    IDList, invalidIDList = generateIDList(rootPath, excludedList)
     logFile.write(f"{datetime.now().isoformat()}{indent}INFO found {len(IDList)} valid IDs\n")
 
      # Detect if any IDs are the same
@@ -287,7 +274,7 @@ def doBackgroundTasks(rootPath, metaPath, command, version):
         scannedIDs.append(thisID.idText)
     
     
-    # Print Warning about Equivalent IDs
+    # Write Warning about Equivalent IDs
     if len(equalIDs) != 0:
         logFile.write(f"{datetime.now().isoformat()}{indent}WARN found {len(equalIDs)} equal IDs\n")
         indent = " "*5
@@ -295,7 +282,7 @@ def doBackgroundTasks(rootPath, metaPath, command, version):
             logFile.write(f"{datetime.now().isoformat()}{indent}WARN {copiedID[0].path} and {copiedID[1].path} have an equivalent ID\n")
 
     indent = " "*3
-    # Print warning about invalid IDs
+    # Write warning about invalid IDs
     if len(invalidIDList) != 0:
         logFile.write(f"{datetime.now().isoformat()}{indent}WARN found {len(invalidIDList)} invalid IDs\n")
         indent = " "*5
@@ -310,33 +297,42 @@ def doBackgroundTasks(rootPath, metaPath, command, version):
     logFile.write(f"{datetime.now().isoformat()}{indent}INFO Writing data to {rootPath}/.glass/data/IDPaths.json\n")
     exportIDlist(IDList, os.path.join(rootPath, ".glass/data/IDPaths.json"))
 
+    return IDList
+
+
+
+def doBackgroundTasks(rootPath, metaPath, excludedList, command, version):
     indent = " "*1
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO LOADING PROJECTS\n")
-    
-    indent = " "*3
-    validProjects, invalidProjects = project.generateProjectList(IDList, metaPath)
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO found {len(validProjects)} valid Projects\n")
-    
-    if len(invalidProjects) != 0:
-        logFile.write(f"{datetime.now().isoformat()}{indent}WARN found {len(invalidProjects)} invalid Projects\n")
+
+    # Clear Log File
+    logFile = open(os.path.join(rootPath, ".glass/logs/background.txt"), "w")
+    logFile.write("w+")
+    logFile.close()
+
+    # Write Metadata to Log file
+    logFile = open(os.path.join(rootPath, ".glass/logs/background.txt"), "w+")
+    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Starting BACKGROUND TASKS\n")
+    logFile.write(f"{datetime.now().isoformat()}{indent}INFO version={version}\n")
+    logFile.write(f"{datetime.now().isoformat()}{indent}INFO command={command}\n")
+    logFile.write(f"{datetime.now().isoformat()}{indent}INFO reading data from {rootPath}\n")
+
+    # Save IDs
+    try:
+        IDList = readFileSystem(logFile, rootPath, excludedList)
+    except Exception as e:
+        logFile.write(f"{datetime.now().isoformat()}{indent} ERROR in File System Reader\n")
         indent = " "*5
-        for invalidProj in invalidProjects:
-            logFile.write(f"{datetime.now().isoformat()}{indent}WARN {invalidProj.id.path} is invalid because {invalidProj.descriptor}\n")
+        logFile.write(f"{datetime.now().isoformat()}{indent} ERROR {e}\n")
+        return
 
-    indent = " "*3
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Updating metafiles\n")
-    modifiedMetaList = []
-    for proj in validProjects:
-        if proj.updateMetaFileRevisions():
-            modifiedMetaList.append(proj.metaFilePath)
+    # Save Projects
+    try: 
+        project.readProjectsFileSystem(logFile, metaPath, IDList)
+    except Exception as e:
+        logFile.write(f"{datetime.now().isoformat()}{indent} ERROR in Project Reader\n")
+        indent = " "*5
+        logFile.write(f"{datetime.now().isoformat()}{indent} ERROR {e}\n")
+        return
     
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Updated {len(modifiedMetaList)} metafiles\n")
-    indent = " "*5
-    for metaFile in modifiedMetaList:
-        logFile.write(f"{datetime.now().isoformat()}{indent}INFO Modified {metaFile}\n")
-
-    indent = " "*3
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Completed PROJECTS\n")
-
     indent = " "*1
     logFile.write(f"{datetime.now().isoformat()}{indent}INFO Completed BACKGROUND TASKS\n")

@@ -1,3 +1,4 @@
+import json
 import click
 from . import util
 import os
@@ -41,21 +42,26 @@ class Project:
             self.properties = readFileProperties(self.metaFilePath)
             if self.properties["glassID"] != self.id.getHigherLevel("project"):
                 return [False, f"The ID present in the file indicates "]
-
+            if self.properties["meta-override"] not in ["true", "false"]:
+                return [False, f"The meta-override value is not 'true' or 'false'. Value is '{self.properties['meta-override']}'"]
         except KeyError as exception:
             return [False, f"The metafile located at {self.metaFilePath} does not have the necessary information in the file properties. It is missing a value for {exception}"]
         return [True, ""]
     
     def updateMetaFileRevisions(self):
         # Update the meta file to reflect new revision
-        modified = False
-        if self.properties["revision-stage"].replace("-", " ") != self.revisionStages[self.id.revisionStage]:
-            self.modifyPair("revision-stage", self.revisionStages[self.id.revisionStage].replace(" ", "-"))
-            modified = True
-        if self.properties["revision-number"].replace('"', '') != str(self.id.revision) and self.id.revision != -1:
-            self.modifyPair("revision-number", self.id.revision)
-            modified = True
-        return modified
+        try:
+            modified = False
+            if self.properties["meta-override"] != "true":
+                if self.properties["revision-stage"].replace("-", " ") != self.revisionStages[self.id.revisionStage]:
+                    self.modifyPair("revision-stage", self.revisionStages[self.id.revisionStage].replace(" ", "-"))
+                    modified = True
+                if self.properties["revision-number"].replace('"', '') != str(self.id.revision) and self.id.revision != -1:
+                    self.modifyPair("revision-number", self.id.revision)
+                    modified = True
+                return modified
+        except KeyError:
+            return False
     
     def modifyPair(self, propertyKey, newPropertyValue):
         # Change the value of a given property
@@ -191,7 +197,7 @@ def generateMetaFile(metaRoot, templatePath, id, title, revisionStage, revisionN
             elif "date:" in line and "due-date:" not in line:
                 line = f"date: {datetime.now().strftime('%Y-%m-%d')}\n" 
             elif "time:" in line:
-                line = f"time: {datetime.now().strftime('%H:%m %p').lower()}\n" 
+                line = f"time: {datetime.now().strftime('%I:%m %p').lower()}\n" 
             elif "class:" in line:
                 line = f"class: {className}\n"
             elif "image:" in line:
@@ -213,6 +219,38 @@ def generateMetaFile(metaRoot, templatePath, id, title, revisionStage, revisionN
 
     return
 
+def readProjectsFileSystem(logFile, metaPath, IDList):
+    # Read the File System to find the most recent revision of each project and update metadata file
+    indent = " "*1
+    logFile.write(f"{datetime.now().isoformat()}{indent}INFO LOADING PROJECTS\n")
+    indent = " "*3
+    
+    validProjects, invalidProjects = generateProjectList(IDList, metaPath)
+    logFile.write(f"{datetime.now().isoformat()}{indent}INFO found {len(validProjects)} valid Projects\n")
+    
+    # Write Invalid Projects
+    if len(invalidProjects) != 0:
+        logFile.write(f"{datetime.now().isoformat()}{indent}WARN found {len(invalidProjects)} invalid Projects\n")
+        indent = " "*5
+        for invalidProj in invalidProjects:
+            logFile.write(f"{datetime.now().isoformat()}{indent}WARN {invalidProj.id.path} is invalid because {invalidProj.descriptor}\n")
+
+    indent = " "*3
+    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Updating metafiles\n")
+    modifiedMetaList = []
+    for proj in validProjects:
+        if proj.updateMetaFileRevisions(): # Returns true if the meta file is updated
+            modifiedMetaList.append(proj.metaFilePath)
+    
+    # Write list of meta files that are updated
+    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Updated {len(modifiedMetaList)} metafiles\n")
+    indent = " "*5
+    for metaFile in modifiedMetaList:
+        logFile.write(f"{datetime.now().isoformat()}{indent}INFO Modified {metaFile}\n")
+
+    indent = " "*3
+    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Completed PROJECTS\n")
+
 # Manage the users projects
 @click.command("new")
 @click.argument("id")
@@ -227,26 +265,65 @@ def generateMetaFile(metaRoot, templatePath, id, title, revisionStage, revisionN
 @click.pass_context
 def newProj(ctx, id, title, revisionStage, revisionNumber, dueDate, className, imageURL, noSideCar, noInput):
     "Create a new Project"
+
+    commandStr = f'glass project new {id} --title "{title}" --revision-stage "{revisionStage}" --revision-number "{revisionNumber}" '
+    commandStr += f'--due-date "{dueDate.strftime("%d/%m/%Y")}" --class "{className}" --image "{imageURL}"'
+
+    if noSideCar:
+        commandStr += " --no-sidecar"
+    if noInput:
+        commandStr += " --no-input"
+
+    # Get Metadata
     # Ensure the provided ID is a valid Project ID
     testID = util.pathID(id, "", True)
     if testID.idType != "project":
-        raise click.ClickException(f"The provided ID is not a project")
+        if testID.idType != "subfolder":
+            click.echo(click.style(commandStr, fg="blue"))
+            raise click.ClickException(f"The provided ID is not a Project or Subfolder")
+        
+        # If the user has supplied a subfolder ID, create a new project within that subfolder
+        projectsCount = 0
+        for project in ctx.obj['projects']['valid'] + ctx.obj['projects']['invalid']:
+            if project.id.getHigherLevel("subfolder") == id:
+                projectsCount += 1
+        
+        id = f"{id}.{str(projectsCount+1).zfill(2)}"
+
 
     if not testID.getHigherLevel("subfolder") in ctx.obj['ids'].keys():
+        click.echo(click.style(commandStr, fg="blue"))
         raise click.ClickException(f"The provided ID does not have a corresponding subfolder")
-    
+
     # Ensure the project ID does not already exist
-    for project in ctx.obj['projects']['valid'] + ctx.obj['projects']['invalid']:
+    for project in ctx.obj['projects']['valid']:
         if project.id.idText == id:
-            util.doBackgroundTasks(ctx.obj['root'], " ".join(sys.argv), version('glass'))
+            util.doBackgroundTasks(
+                ctx.obj['root'], 
+                ctx.obj['metafiles'], 
+                ctx.obj['excludeDirs'],
+                " ".join(sys.argv), 
+                version('glass'))
+            click.echo(click.style(commandStr, fg="blue"))
             raise click.ClickException(f"This ID already exists at {project.id.path}")
+
+    newProject = True
+    # Check if Project exists but is invalid
+    for project in ctx.obj['projects']['invalid']:
+        if project.id.idText == id and project.metaFilePath == "":
+            newProject = False
+            break
 
     subfolderID = ctx.obj['ids'][testID.getHigherLevel("subfolder")]
     folderPath = f"{subfolderID.path}\\{id} - {title}"
 
     if not noInput:
-        click.echo("About to create a project with attributes")
+        if newProject:
+            click.echo("About to create a project with attributes")
+        else:
+            click.echo("An invalid Project already exists with that ID, creating a Metafile with the following properties")
         
+        click.echo(f"{'ID':<20}| {id}")
         click.echo(f"{'title':<20}| {title}")
         click.echo(f"{'Revision Stage':<20}| {revisionStage}")
         click.echo(f"{'Revision Number':<20}| {revisionNumber}")
@@ -257,11 +334,14 @@ def newProj(ctx, id, title, revisionStage, revisionNumber, dueDate, className, i
         if not click.confirm("Confirm", default=True):
             return
 
-    os.mkdir(folderPath)
+    # Only make a new directory if the project is new
+    if newProject:
+        os.mkdir(folderPath)
+
     generateMetaFile(
         ctx.obj["metafiles"], 
         ctx.obj["templatePath"], 
-        testID,
+        util.pathID(id, "", True),
         title, 
         revisionStage, 
         revisionNumber, 
@@ -271,18 +351,56 @@ def newProj(ctx, id, title, revisionStage, revisionNumber, dueDate, className, i
     )
 
     # Do Background Tasks to add newly created project to the stack
-    util.doBackgroundTasks(ctx.obj['root'], " ".join(sys.argv), version('glass'))
+    util.doBackgroundTasks(
+        ctx.obj['root'], 
+        ctx.obj['metafiles'],
+        ctx.obj['excludeDirs'],
+        " ".join(sys.argv), 
+        version('glass'))
 
     return
 
 @click.command("view")
 @click.argument("id")
+@click.option("jsonOutput", "--json", is_flag=True, default=False)
 @click.pass_context
-def viewProj(ctx, id):
-
+def viewProj(ctx, id, jsonOutput):
     "View the metadata associated with a specific project"
-    click.echo("Viewing Project")
+    selectedProj = ""
+    for project in ctx.obj["projects"]["valid"] + ctx.obj["projects"]["invalid"]:
+        if project.id.idText == id:
+            selectedProj = project
+            break
 
+    if selectedProj == "":
+        click.echo(f"ERROR, Could not find a project with id {id}\nUse glass list to generate a list of all valid IDs")
+        return
+    
+    attributes = ['title', 'date', 'time', 'class', 'due-date', 'revision-stage', 'revision-number', 'submitted']
+
+    if not jsonOutput:
+        click.echo(f"{'ID':<20}| {selectedProj.id.idText}")
+        for attr in attributes:
+            try:
+                click.echo(f"{attr:<20}| {selectedProj.properties[attr]}")
+            except KeyError:
+                click.echo(f"{attr:<20}| EMPTY")
+
+        click.echo(f"{'Folder Path':<20}| {selectedProj.id.path}")
+        click.echo(f"{'Meta File Path':<20}| {selectedProj.metaFilePath}")
+        return
+    
+    data = {
+        'id': selectedProj.id.idText,
+        'path': selectedProj.id.path,
+        'metapath': selectedProj.metaFilePath,
+        'properties': selectedProj.properties
+        }
+    click.echo(json.dumps({
+                "status": "success",
+                "data": data,
+                "reason ": ""
+            }))
 
 @click.command("modify")
 @click.argument("id")
@@ -290,4 +408,94 @@ def modifyProj(id):
     "Modify Metadata associated with a specific project"
     click.echo("Modifying project")
 
+@click.command("repair")
+@click.argument("id")
+@click.option("noInput", "--no-input", default=False, is_flag=True)
+@click.pass_context
+def repairProj(ctx, id, noInput):
+    "Repair/Create the Metafile for a given project"
+    thisProj = False
+    for proj in ctx.obj["projects"]["valid"] + ctx.obj["projects"]["invalid"]:
+        if proj.id.idText == id:
+            thisProj = proj
 
+    if thisProj == False:
+        click.echo(f"The ID {id} does not exist in the filesystem")
+        return
+    
+    if thisProj.metaFilePath == "":
+        # If there isn't an existing metafile for the project
+        click.echo("This project does not have an existing metafile")
+        if not click.confirm("Do you want to generate a new one?", default=True):
+            return
+
+        generateMetaFile(
+            ctx.obj["metafiles"], 
+            ctx.obj["templatePath"], 
+            util.pathID(id, "", True),
+            thisProj.id.descriptor, 
+            thisProj.revisionStages[thisProj.id.revisionStage].replace(" ", "-"), 
+            thisProj.id.revision, 
+            datetime.today(), 
+            "",
+            ""
+        )
+
+    if thisProj.metaFilePath != "":
+        # If the project already has a metafile but is missing some properties
+
+        # Get the ideal set of property keys
+        vals = {
+            'title': thisProj.id.descriptor,
+            'date': datetime.today().strftime('%d/%M/%Y'),
+            'type': 'project',
+            'time': datetime.now().strftime('%H:%m %p').lower(),
+            'class': '',
+            'image': '',
+            'due-date': '',
+            'revision-stage': thisProj.revisionStages[thisProj.id.revisionStage].replace(" ", "-"),
+            'revision-number': thisProj.id.revision,
+            'submitted': False, 
+            'grade': '',
+            'glassID': id,
+            'meta-override': False
+        }
+        templateProperties = readFileProperties(ctx.obj["templatePath"])
+        projKeys = list(thisProj.properties.keys())
+        keysToAdd = {}
+        for key in templateProperties.keys():
+            if key not in projKeys:
+                keysToAdd[key] = vals[key]
+
+        # Update Meta file to include the keys
+        if len(keysToAdd.keys()) == 0:
+            click.echo("There are no missing metafile properties in the project's metafile")
+            return
+
+        if not noInput:
+            click.echo(f"The file {thisProj.metaFilePath} will be modified to include the following")
+            for key in keysToAdd.keys():
+                click.echo(f"{key:<20}| {keysToAdd[key]}")
+                
+            if not click.confirm("Do you wish to continue?", default=True):
+                return
+
+        with open(thisProj.metaFilePath, "r") as metaFile:
+            lines = metaFile.readlines()
+            fileLines = []
+            foundPropertyStart = False
+            addedData = False
+            for lineIndex, line in enumerate(lines):
+                if line.strip() == "---" and foundPropertyStart == True and addedData == False:
+                    for key in keysToAdd.keys():
+                        fileLines.append(f"{key}: {keysToAdd[key]}\n")
+                    addedData = True
+
+
+                if line.strip() == "---" and foundPropertyStart == False:
+                    foundPropertyStart = True
+
+                fileLines.append(line)
+        
+        with open(thisProj.metaFilePath, "w") as metaFile:
+            metaFile.write("".join(fileLines))

@@ -1,6 +1,5 @@
 import click
 import os
-from dotenv_vault import load_dotenv
 import sys
 from importlib.metadata import version
 import json
@@ -14,9 +13,9 @@ from . import util
 @click.group()
 @click.pass_context
 def cli(ctx):
-    # Load Config file
-    load_dotenv()
-    rootFolder = os.getenv("root_path")
+
+    excludeDirs = [".glass", "vault"] # List of folders which will be Excluded from the indexation process
+
     storageLocations = {
         "A": "Main Drive",
         "B": "Google Drive",
@@ -29,13 +28,26 @@ def cli(ctx):
         "D": "submission"
     }
 
+
+    try: 
+        idDict = util.loadIDDict(rootFolder)
+    except Exception:
+        util.doBackgroundTasks(
+            rootFolder,
+            markdownPath,
+            excludeDirs,
+            " ".join(sys.argv) + " GENERATING .JSON FILE",
+            version('glass')
+        )
+
     ctx.obj = {
         "root": rootFolder, 
         "ids": util.loadIDDict(rootFolder),
-        "metafiles": os.getenv("markdown_path"),
-        "templatePath": os.getenv("template_path"),
+        "metafiles": markdownPath,
+        "templatePath": templatePath,
         "storageLocations": storageLocations,
-        "revisionLabels": revisionLabels
+        "revisionLabels": revisionLabels,
+        "excludeDirs": excludeDirs
     }
 
 
@@ -56,8 +68,13 @@ def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=Tru
         if doReccurance:
             if not jsonOutput and not quiet:
                 click.echo("ID is not present in the cached file, regenerating Cache")
-            
-            util.doBackgroundTasks(ctx.obj['root'], " ".join(sys.argv), version('glass')) # Make the JSON file again
+            util.doBackgroundTasks(
+                ctx.obj['root'],
+                ctx.obj['metafiles'],
+                ctx.obj['excludeDirs'],
+                " ".join(sys.argv), 
+                version('glass'),
+            )
             ctx.obj['ids'] = util.loadIDDict(ctx.obj['root']) # Load the JSON file into the context again
             
             # Re-run current command with the new context 
@@ -76,11 +93,17 @@ def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=Tru
         return
 
 
-    if printPath == False:
+    if printPath == False and jsonOutput == False:
         launchSuccess = click.launch(openPath)
         if launchSuccess == 1: # If the folder cannot be launcged
             # If the original ID no longer exists, rerun the command after a new background scan
-            util.doBackgroundTasks(ctx.obj['root'], " ".join(sys.argv), version('glass')) # Make the JSON file again
+            util.doBackgroundTasks(
+                ctx.obj['root'],
+                ctx.obj['metafiles'],
+                ctx.obj['excludeDirs'],
+                " ".join(sys.argv), 
+                version('glass'),
+            )
             ctx.obj['ids'] = util.loadIDDict(ctx.obj['root']) # Load the JSON file into the context again
             
             # Re-run current command with the new context 
@@ -99,6 +122,7 @@ def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=Tru
         util.doBackgroundTasks(
             ctx.obj['root'],
             ctx.obj['metafiles'],
+            ctx.obj['excludeDirs'],
             " ".join(sys.argv), 
             version('glass'),
         )
@@ -146,13 +170,16 @@ def listIDs(ctx, id, jsonOutput):
 @click.pass_context
 def projectCLI(ctx):
     """Manage Projects tracked by Looking Glass"""
-    validProjectsList, invalidProjectsList = project.generateProjectList(ctx.obj['ids'], ctx.obj['metafiles'])
+    # Generate list of projects 
+    projList = [pair[1] for pair in ctx.obj['ids'].items()]
+    validProjectsList, invalidProjectsList = project.generateProjectList(projList, ctx.obj['metafiles'])
     ctx.obj['projects'] = {"valid": validProjectsList, "invalid": invalidProjectsList}
 
 
 projectCLI.add_command(project.viewProj)
 projectCLI.add_command(project.modifyProj)
 projectCLI.add_command(project.newProj)
+projectCLI.add_command(project.repairProj)
 
 
 @cli.group("workspace")
@@ -168,11 +195,12 @@ workspaceCLI.add_command(workspace.viewWorkSpace)
 @cli.group("standin")
 def standInCLI():
     """Manage Stand In Files in the file system"""
-    click.echo("LOAD Workspace")
+    
 
 standInCLI.add_command(standin.newStandIn)
 standInCLI.add_command(standin.modifyStandIn)
 standInCLI.add_command(standin.viewStandIn)
+standInCLI.add_command(standin.openStandIn)
 
 @cli.group()
 def config():
