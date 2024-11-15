@@ -3,6 +3,8 @@ import re
 import json
 from datetime import datetime
 import time
+
+import click
 from . import project
 
 class pathID:
@@ -296,6 +298,8 @@ def readFileSystem(logFile, rootPath, excludedList):
     indent = " "*3
     logFile.write(f"{datetime.now().isoformat()}{indent}INFO Writing data to {rootPath}/.glass/data/IDPaths.json\n")
     exportIDlist(IDList, os.path.join(rootPath, ".glass/data/IDPaths.json"))
+    indent = " "*1
+    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Completed IDs\n")
 
     return IDList
 
@@ -336,3 +340,16 @@ def doBackgroundTasks(rootPath, metaPath, excludedList, command, version):
     
     indent = " "*1
     logFile.write(f"{datetime.now().isoformat()}{indent}INFO Completed BACKGROUND TASKS\n")
+
+def selectFromList(list):
+    # Allow the user to select an item from a list
+    while True:
+        for index, item in enumerate(list):
+            click.echo(f"{index+1}. {item}")
+        selectedIndex = click.prompt("Which item do you want?", type=int)
+        try:
+            selectedItem = list[selectedIndex-1]
+            return selectedItem 
+        except IndexError:
+            click.echo("This number is invalid")
+        

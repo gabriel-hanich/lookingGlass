@@ -29,6 +29,11 @@ class StandInFile:
             self.created = fileData['created'] 
             self.fileVersion = fileData['glass_version'] 
 
+    def regenMetaData(self):
+        # Regenerate the Metadata 
+        self.created = time.time()
+        self.fileVersion = version('glass')
+
     def createFile(self):
         with open(self.filePath, "w") as glassFile:
             data = {
@@ -53,7 +58,6 @@ def getStandIns(path):
             standIns.append(StandInFile(abs_path, True))
 
     return standIns
-
 
 
 # Handle Standin files
@@ -112,16 +116,77 @@ def newStandIn(ctx, id, title, description, url, people, doReccurance=True):
 
 @click.command("view")
 @click.argument("id")
-def viewStandIn(id):
+@click.pass_context
+def viewStandIn(ctx, id, doReccurance=True):
     "View the contents of a stand in file"
-    click.echo("Viewing Stand In")
+    try:
+        parentID = ctx.obj["ids"][id]
+    except KeyError:
+        # If the ID does not exist in the cache, regenerate cache to double check
+        if doReccurance:
+            util.doBackgroundTasks(
+                ctx.obj['root'],
+                ctx.obj['metafiles'],
+                ctx.obj['excludeDirs'],
+                " ".join(sys.argv), 
+                version('glass'),
+            )
+            ctx.obj['ids'] = util.loadIDDict(ctx.obj['root']) # Load the JSON file into the context again
+            # Re-run current command with the new context 
+            ctx.invoke(viewStandIn, id=id, doReccurance=False) 
+            return
+        else:
+            # Runs if the ID really doesn't exist
+            click.echo(f"The ID {id} does not exist on the file directory, try the command again with a new id")
+            click.echo(click.style(f'glass standin view [ID]', fg='blue'))
+            return
+        
 
+    standIns = getStandIns(parentID.path)
+    titles = [standIn.title for standIn in standIns]
+    selectedTitle = util.selectFromList(titles)
+    for standInFile in standIns:
+        if standInFile.title == selectedTitle:
+            selectedFile = standInFile
+
+    click.echo(f"{'Path':<20}| {selectedFile.filePath}")
+    click.echo(f"{'Title':<20}| {selectedFile.title}")
+    click.echo(f"{'URL':<20}| {selectedFile.url}")
+    click.echo(f"{'Description':<20}| {selectedFile.description}")
+    click.echo(f"{'People':<20}| {selectedFile.people}")
+    click.echo(f"{'Created':<20}| {selectedFile.created}")
+    click.echo(f"{'Version':<20}| {selectedFile.fileVersion}")
 
 @click.command("modify")
 @click.argument("id")
-def modifyStandIn(id):
+@click.pass_context
+def modifyStandIn(ctx, id):
     "Modify Metadata associated with a stand in file"
-    click.echo("Modifying Stand In")
+    "View the contents of a stand in file"
+    try:
+        parentID = ctx.obj["ids"][id]
+    except KeyError:
+        # Runs if the ID really doesn't exist
+        click.echo(f"The ID {id} does not exist on the file directory, try the command again with a new id")
+        click.echo(click.style(f'glass standin modify [ID]', fg='blue'))
+        return
+        
+
+    standIns = getStandIns(parentID.path)
+    titles = [standIn.title for standIn in standIns]
+    selectedTitle = util.selectFromList(titles)
+    for standInFile in standIns:
+        if standInFile.title == selectedTitle:
+            selectedFile = standInFile
+
+
+    attributes = ["title", "description", "url", "people"]
+    selectedAttribute = util.selectFromList(attributes)
+    newVal = click.prompt("What should the new value be?")
+
+    setattr(selectedFile, selectedAttribute, newVal)
+    selectedFile.regenMetaData()
+    selectedFile.createFile()
 
 @click.command("open")
 @click.argument("path")

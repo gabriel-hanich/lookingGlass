@@ -1,5 +1,7 @@
 import json
 import click
+
+from . import tools
 from . import util
 import os
 from datetime import datetime
@@ -180,9 +182,10 @@ def generateProjectList(idList, metaFilePath):
 
     return validIDs, invalidIDs
 
-def generateMetaFile(metaRoot, templatePath, id, title, revisionStage, revisionNumber, dueDate, className, imageURL):
+def generateMetaFile(metaRoot, templatePath, id, title, revisionStage, revisionNumber, dueDate, className, imageURL, command=""):
     metaPath = metaRoot + "/" + title + ".md"
     if os.path.isfile(metaPath):
+        click.echo(click.style(command, fg="blue"))
         raise click.ClickException(f"A metafile with this title already exists at {metaPath}")
 
     # Read template
@@ -248,7 +251,7 @@ def readProjectsFileSystem(logFile, metaPath, IDList):
     for metaFile in modifiedMetaList:
         logFile.write(f"{datetime.now().isoformat()}{indent}INFO Modified {metaFile}\n")
 
-    indent = " "*3
+    indent = " "*1
     logFile.write(f"{datetime.now().isoformat()}{indent}INFO Completed PROJECTS\n")
 
 # Manage the users projects
@@ -298,12 +301,7 @@ def newProj(ctx, id, title, revisionStage, revisionNumber, dueDate, className, i
     # Ensure the project ID does not already exist
     for project in ctx.obj['projects']['valid']:
         if project.id.idText == id:
-            util.doBackgroundTasks(
-                ctx.obj['root'], 
-                ctx.obj['metafiles'], 
-                ctx.obj['excludeDirs'],
-                " ".join(sys.argv), 
-                version('glass'))
+            ctx.invoke(tools.manuallyDoBackgroundTasks)
             click.echo(click.style(commandStr, fg="blue"))
             raise click.ClickException(f"This ID already exists at {project.id.path}")
 
@@ -336,7 +334,11 @@ def newProj(ctx, id, title, revisionStage, revisionNumber, dueDate, className, i
 
     # Only make a new directory if the project is new
     if newProject:
-        os.mkdir(folderPath)
+        try:
+            os.mkdir(folderPath)
+        except FileExistsError:
+            click.echo(click.style(commandStr, fg="blue"))
+            raise click.ClickException(f"There is already a folder at {folderPath}")
 
     generateMetaFile(
         ctx.obj["metafiles"], 
@@ -347,16 +349,12 @@ def newProj(ctx, id, title, revisionStage, revisionNumber, dueDate, className, i
         revisionNumber, 
         dueDate, 
         className,
-        imageURL
+        imageURL,
+        command=commandStr
     )
 
     # Do Background Tasks to add newly created project to the stack
-    util.doBackgroundTasks(
-        ctx.obj['root'], 
-        ctx.obj['metafiles'],
-        ctx.obj['excludeDirs'],
-        " ".join(sys.argv), 
-        version('glass'))
+    ctx.invoke(tools.manuallyDoBackgroundTasks)
 
     return
 
@@ -402,11 +400,6 @@ def viewProj(ctx, id, jsonOutput):
                 "reason ": ""
             }))
 
-@click.command("modify")
-@click.argument("id")
-def modifyProj(id):
-    "Modify Metadata associated with a specific project"
-    click.echo("Modifying project")
 
 @click.command("repair")
 @click.argument("id")
