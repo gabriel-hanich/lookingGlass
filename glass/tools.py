@@ -1,13 +1,26 @@
+import json
+import os
+import glass.__main__ as main
 from importlib.metadata import version
 import sys
+import time
 import click
 import glass.util as util
+import hashlib
 
 @click.command("diagram")
+@click.option("storageLocation", "--storage", type=str, default="A")
 @click.option("includeProjects", "--projects", is_flag=True, default=False)
 @click.pass_context
-def generateMermaidDiagram(ctx, includeProjects):
+def generateMermaidDiagram(ctx, includeProjects, storageLocation):
     "Generates a diagram in the syntax of Mermaid.JS of your file tree"
+    idDict = ctx.obj["ids"]
+    if storageLocation != "A":
+        try:
+            idDict = util.loadIDDict(ctx.obj["root"], storageLocation)
+        except FileNotFoundError:
+            raise click.ClickException(f"The provided Storage Location ({storageLocation}) does not exist")
+
     mermaidStr = "graph TD;\n"
     levels = ["area","category", "subfolder"]
     if includeProjects:
@@ -15,21 +28,21 @@ def generateMermaidDiagram(ctx, includeProjects):
     mermaidIds = {}
     a = 0
     for level in levels:
-        for pathID in ctx.obj['ids']:
-            if ctx.obj['ids'][pathID].idType == level:
-                mermaidIds[pathID] = f"id{a}" 
-                mermaidStr += f"id{a}({ctx.obj['ids'][pathID].descriptor})\n" 
+        for pathID in idDict:
+            if idDict[pathID].idType == level:
+                mermaidIds[idDict[pathID].numericalID] = f"id{a}" 
+                mermaidStr += f"id{a}({idDict[pathID].descriptor})\n" 
                 a += 1
 
-    for pathID in ctx.obj['ids']:
-        thisID = ctx.obj['ids'][pathID]
+    for pathID in idDict:
+        thisID = idDict[pathID]
         if thisID.idType not in ["area", "child-project"]:
             if (thisID.idType == "project") and includeProjects:
                 parentID = thisID.getHigherLevel(levels[levels.index(thisID.idType)-1])
-                mermaidStr += f"{mermaidIds[parentID]}-->{mermaidIds[thisID.idText]}\n"
+                mermaidStr += f"{mermaidIds[parentID]}-->{mermaidIds[thisID.numericalID]}\n"
             elif thisID.idType != "project":
                 parentID = thisID.getHigherLevel(levels[levels.index(thisID.idType)-1])
-                mermaidStr += f"{mermaidIds[parentID]}-->{mermaidIds[thisID.idText]}\n"
+                mermaidStr += f"{mermaidIds[parentID]}-->{mermaidIds[thisID.numericalID]}\n"
 
     click.echo(mermaidStr)
 
@@ -44,3 +57,83 @@ def manuallyDoBackgroundTasks(ctx):
             " ".join(sys.argv), 
             version('glass'),
         )
+    
+@click.command("encode")
+@click.pass_context
+def generateMetaData(ctx):
+    "Generates a file that can be used to track changes"
+    titles = ctx.invoke(main.listIDs, quiet=True, jsonOutput=False)
+    m = hashlib.sha256()
+    m.update(str.encode(" ".join(titles["titles"])))
+    titleHash = m.hexdigest()
+    fileData = {
+        "generated": time.time(),
+        "version": version("glass"),
+        "id_count": len(ctx.obj["ids"]),
+        "fileHash": str(titleHash),
+        "filesystem": titles["titles"]
+    }
+
+    with open(f"{ctx.obj['root']}/identifier.json", "w") as outputFile:
+        json.dump(fileData, outputFile, indent=2)
+    click.echo(f"Generated File Hash at {ctx.obj['root']}/identifier.json")
+
+@click.command("duplicate")
+@click.argument("parentstorage")
+@click.argument("childstorage")
+@click.option("preserve", "--preserve", is_flag=True, help="Preserves the paths from the parent", default=False)
+@click.pass_context
+def duplicateStorage(ctx, parentstorage, childstorage, preserve):
+    "Duplicate the ID structure from the parent storage to the child"
+    
+    if parentstorage == "A":
+        parentDict = ctx.obj["ids"]
+    else:
+        try:
+            parentDict = util.loadIDDict(ctx.obj["root"], parentstorage)
+        except FileNotFoundError:
+            raise click.ClickException(f"The Parent Storage ({parentstorage}) does not exist")
+
+    if childstorage == "A":
+        childDict = ctx.obj["ids"]
+    else:
+        try:
+            childDict = util.loadIDDict(ctx.obj["root"], childstorage)
+        except FileNotFoundError:
+            # If the child  ID file does not exist, create it
+            util.exportIDlist([], os.path.join(ctx.obj["root"], f".glass/data/IDPaths{childstorage}.json"))
+            childDict = util.loadIDDict(ctx.obj["root"], childstorage)
+
+    modifiedIDs = 0
+    for parentText in parentDict.keys():
+        parentID = parentDict[parentText]
+        try:
+            childID = childDict[f"{childstorage}{parentID.numericalID}"]
+        except KeyError:
+            # If the ID is in the parent storage but not the child
+            childID = util.pathID(f"{childstorage}{parentID.numericalID}", parentID.path, True)
+            childID.descriptor = parentID.descriptor
+            if preserve:
+                click.echo(f"Transferring ID {parentID.numericalID}")
+                childID.path = parentID.path
+                childDict[childID.idText] = childID
+            else:
+                click.echo(f"\n{'Attr':<20} | {'Parent':<20} | {'Child':<20}")
+                click.echo(f"{'-'*21}|{'-'*22}|{'-'*21}")
+                click.echo(f"{'ID':<20} | {parentID.idText:<20} | {childID.idText:<20}")
+                click.echo(f"{'Descriptor':<20} | {parentID.descriptor:<20} | {childID.descriptor:<20}")
+                click.echo(f"Given that the parent ID has a path that points to\n{parentID.path}")
+                childID.path = click.prompt("What should the child ID point to?", type=str)
+                childDict[childID.idText] = childID
+
+                childIDList = [childDict[idPath] for idPath in childDict]
+                util.exportIDlist(childIDList, os.path.join(ctx.obj["root"], f".glass/data/IDPaths{childstorage}.json"))
+            modifiedIDs += 1
+    
+    if preserve:
+        if click.confirm(f"Do you want to bring {modifiedIDs} to the Storage Location {childstorage}", default=False):
+            childIDList = [childDict[idPath] for idPath in childDict]
+            util.exportIDlist(childIDList, os.path.join(ctx.obj["root"], f".glass/data/IDPaths{childstorage}.json"))
+            click.echo("Completed!")
+        else:
+            click.echo("Canceled")

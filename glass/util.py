@@ -212,9 +212,11 @@ def exportIDlist(IDList, outputPath):
     with open(f"{outputPath}", "w", encoding="utf-8") as outputFile:
         json.dump(outputDict, outputFile, indent=4)
 
-def loadIDDict(rootPath):
+def loadIDDict(rootPath, storageLabel=""):
     IDDict = {}
-    with open(os.path.join(rootPath, ".glass/data/IDPaths.json"), "r", encoding="utf-8") as IDFile:
+    if storageLabel == "A":
+        storageLabel = ""
+    with open(os.path.join(rootPath, f".glass/data/IDPaths{storageLabel}.json"), "r", encoding="utf-8") as IDFile:
         rawData = json.load(IDFile)
         
         for key in rawData["IDs"].keys():
