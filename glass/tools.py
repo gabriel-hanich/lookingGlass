@@ -9,8 +9,8 @@ import glass.util as util
 import hashlib
 
 @click.command("diagram")
-@click.option("storageLocation", "--storage", type=str, default="A")
-@click.option("includeProjects", "--projects", is_flag=True, default=False)
+@click.option("storageLocation", "--storage", type=str, default="A", help="The filestorage location that will be scanned (default=A)")
+@click.option("includeProjects", "--projects", is_flag=True, default=False, help="Includes projects within the diagram")
 @click.pass_context
 def generateMermaidDiagram(ctx, includeProjects, storageLocation):
     "Generates a diagram in the syntax of Mermaid.JS of your file tree"
@@ -84,7 +84,7 @@ def generateMetaData(ctx):
 @click.option("preserve", "--preserve", is_flag=True, help="Preserves the paths from the parent", default=False)
 @click.pass_context
 def duplicateStorage(ctx, parentstorage, childstorage, preserve):
-    "Duplicate the ID structure from the parent storage to the child"
+    "Duplicate the ID structure from the parent storage to child"
     
     if parentstorage == "A":
         parentDict = ctx.obj["ids"]
@@ -137,3 +137,26 @@ def duplicateStorage(ctx, parentstorage, childstorage, preserve):
             click.echo("Completed!")
         else:
             click.echo("Canceled")
+
+@click.command("about")
+def printAbout():
+    "Print Information about Looking Glass"
+    logoStr = """
+888                       888      d8b                         .d8888b.  888                            
+888                       888      Y8P                        d88P  Y88b 888                            
+888                       888                                 888    888 888                            
+888      .d88b.   .d88b.  888  888 888 88888b.   .d88b.       888        888  8888b.  .d8888b  .d8888b  
+888     d88""88b d88""88b 888 .88P 888 888 "88b d88P"88b      888  88888 888     "88b 88K      88K      
+888     888  888 888  888 888888K  888 888  888 888  888      888    888 888 .d888888 "Y8888b. "Y8888b. 
+888     Y88..88P Y88..88P 888 "88b 888 888  888 Y88b 888      Y88b  d88P 888 888  888      X88      X88 
+88888888 "Y88P"   "Y88P"  888  888 888 888  888  "Y88888       "Y8888P88 888 "Y888888  88888P'  88888P' 
+                                                     888                                                
+                                                Y8b d88P                                                
+                                                 "Y88P"                                                 
+    """
+    click.echo(click.style(logoStr, fg="bright_blue", bg="black"))
+    click.echo(click.style(f"Looking Glass Version {version('glass')}", fg="blue"))
+    click.echo("Developed by Gabriel Hanich, 2024")
+    click.echo("Source Code Available at https://github.com/gabriel-hanich/lookingGlass/")
+    click.echo(f"Files located at {__file__}")
+    click.echo(click.style("Run "))

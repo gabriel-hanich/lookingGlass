@@ -6,19 +6,17 @@ from importlib.metadata import version
 import json
 import ctypes
 
-from glass.configmanager import viewConfig
-
 from . import project
-from . import workspace
 from . import standin
 from . import util
 from . import tools
 from . import constants
+from . import configmanager
 
 # TODO
-# - [ ] Come up with better method for managing config stuff
+# - [X] Come up with better method for managing config stuff
 # - [X] Integrate other file systems (A, B, C, D, etc)
-# - [ ] Ensure --help messages are present & succint
+# - [ ] Ensure --help messages are present & succint (UPTO diagram)
 # - [ ] Either delete workspace stuff or write it
 
 
@@ -30,13 +28,17 @@ def cli(ctx):
     try: 
         idDict = util.loadIDDict(appConstants["root_path"])
     except Exception as e:
-        util.doBackgroundTasks(
-            appConstants["root_path"],
-            appConstants["markdown_path"],
-            appConstants["excluded_folders"],
-            " ".join(sys.argv), 
-            version('glass'),
-        )
+        try:
+            util.doBackgroundTasks(
+                appConstants["root_path"],
+                appConstants["markdown_path"],
+                appConstants["excluded_folders"],
+                " ".join(sys.argv), 
+                version('glass'),
+            )
+        except KeyError:
+            configmanager.buildConfig()
+            return
 
     ctx.obj = {
         "root":  appConstants["root_path"], 
@@ -149,6 +151,7 @@ def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=Tru
 @click.option("quiet", "--quiet", default=False, is_flag=True)
 @click.pass_context
 def listIDs(ctx, id, jsonOutput, quiet):
+    "List all the IDs in the file system"
     idLevels = ['area', 'category', 'subfolder', 'project', 'child-project']
     titles = []
     searchDepth = 0
@@ -196,7 +199,7 @@ def listIDs(ctx, id, jsonOutput, quiet):
 @click.option("force", "--force", is_flag=True, default=False)
 @click.pass_context
 def createNewID(ctx, id, title, force, doReccurance=True):
-    "Generate a new ID and associated folder based on a provided PARENT ID"
+    "Generate a new ID and Associated Folder"
 
     numbers = re.compile("[0-9]")
     if id == "" or (not numbers.match(id[0]) and len(id) == 1):
@@ -342,7 +345,7 @@ def createNewID(ctx, id, title, force, doReccurance=True):
 @click.option("force", "--force", is_flag=True, default=False)
 @click.pass_context
 def modifyID(ctx, id, parameter, newValue, force):
-    "Modify the path or metadata of a specific ID NOTE: Buggy w/ IDs in primary storage"
+    "Modify the path or metadata of a specific ID"
     selectedID = util.pathID(id, "", True)
     if selectedID.storageLocation == "A":
         click.echo(click.style("WARNING, the ID you input is within the Primary file system, changes will be overwritten by the background tasks", fg="yellow"))
@@ -391,21 +394,11 @@ cli.add_command(tools.generateMermaidDiagram)
 cli.add_command(tools.manuallyDoBackgroundTasks)
 cli.add_command(tools.generateMetaData)
 cli.add_command(tools.duplicateStorage)
+cli.add_command(tools.printAbout)
 
 projectCLI.add_command(project.viewProj)
 projectCLI.add_command(project.newProj)
 projectCLI.add_command(project.repairProj)
-
-
-@cli.group("workspace")
-def workspaceCLI():
-    """Open/Manage Workspaces tracked by Looking Glass"""
-    click.echo("LOAD Workspace")
-
-workspaceCLI.add_command(workspace.openWorkspace)
-workspaceCLI.add_command(workspace.newWorkspace)
-workspaceCLI.add_command(workspace.modifyWorkSpace)
-workspaceCLI.add_command(workspace.viewWorkSpace)
 
 @cli.group("standin")
 def standInCLI():
@@ -421,7 +414,9 @@ standInCLI.add_command(standin.openStandIn)
 def config():
     """Manage App Config"""
 
-config.add_command(viewConfig)
+config.add_command(configmanager.viewConfig)
+config.add_command(configmanager.modifyConfig)
+config.add_command(configmanager.buildConfig)
 
 if __name__ == '__main__':
     cli()
