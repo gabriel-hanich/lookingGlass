@@ -257,14 +257,14 @@ def readProjectsFileSystem(logFile, metaPath, IDList):
 # Manage the users projects
 @click.command("new")
 @click.argument("id")
-@click.option("title", "--title", type=str, prompt=True)
-@click.option("revisionStage", "--revision-stage", default="planning", type=click.Choice(revisionStages), prompt=True)
-@click.option("revisionNumber", "--revision-number", default=1, type=int, prompt=True)
-@click.option("dueDate", "--due-date", type=click.DateTime(formats=["%d/%m/%Y"]), prompt=True)
-@click.option("className", "--class", type=str, prompt=True, default="")
-@click.option("imageURL", "--image", type=str, prompt=True, default="")
-@click.option("noSideCar", "--no-sidecar", default=False, is_flag=True)
-@click.option("noInput", "--no-input", default=False, is_flag=True)
+@click.option("title", "--title", type=str, prompt=True, help="The title of the project")
+@click.option("revisionStage", "--revision-stage", default="planning", type=click.Choice(revisionStages), prompt=True, help="The project's current Revision Stage")
+@click.option("revisionNumber", "--revision-number", default=1, type=int, prompt=True, help="The current revision stage of the project")
+@click.option("dueDate", "--due-date", type=click.DateTime(formats=["%d/%m/%Y"]), prompt=True, help="When the project is due to be submitted")
+@click.option("className", "--class", type=str, prompt=True, default="", help="The class associated with the project")
+@click.option("imageURL", "--image", type=str, prompt=True, default="", help="A link to the project's thumbnail")
+@click.option("noSideCar", "--no-sidecar", default=False, is_flag=True, help="Disables the creation of a sidecar file")
+@click.option("noInput", "--no-input", default=False, is_flag=True, help="Removes any input fields")
 @click.pass_context
 def newProj(ctx, id, title, revisionStage, revisionNumber, dueDate, className, imageURL, noSideCar, noInput):
     "Create a new Project"
@@ -360,7 +360,7 @@ def newProj(ctx, id, title, revisionStage, revisionNumber, dueDate, className, i
 
 @click.command("view")
 @click.argument("id")
-@click.option("jsonOutput", "--json", is_flag=True, default=False)
+@click.option("jsonOutput", "--json", is_flag=True, default=False, help="Returns the data in a JSON format")
 @click.pass_context
 def viewProj(ctx, id, jsonOutput):
     "View the metadata associated with a specific project"
@@ -403,7 +403,7 @@ def viewProj(ctx, id, jsonOutput):
 
 @click.command("repair")
 @click.argument("id")
-@click.option("noInput", "--no-input", default=False, is_flag=True)
+@click.option("noInput", "--no-input", default=False, is_flag=True, help="Forces the changes without asking for confirmation")
 @click.pass_context
 def repairProj(ctx, id, noInput):
     "Repair/Create the Metafile for a given project"

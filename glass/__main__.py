@@ -16,8 +16,8 @@ from . import configmanager
 # TODO
 # - [X] Come up with better method for managing config stuff
 # - [X] Integrate other file systems (A, B, C, D, etc)
-# - [ ] Ensure --help messages are present & succint (UPTO diagram)
-# - [ ] Either delete workspace stuff or write it
+# - [X] Ensure --help messages are present & succint (UPTO diagram)
+# - [X] Either delete workspace stuff or write it
 
 
 @click.group()
@@ -53,10 +53,10 @@ def cli(ctx):
 
 @cli.command('open')
 @click.argument("id")
-@click.option("printPath", "--print", default=False, is_flag=True)
-@click.option("noBackground", "--no-background", default=False, is_flag=True)
-@click.option("quiet", "--quiet", default=False, is_flag=True)
-@click.option("jsonOutput", "--json", default=False, is_flag=True)
+@click.option("printPath", "--print", default=False, is_flag=True, help="Will display the path rather then opening it")
+@click.option("noBackground", "--no-background", default=False, is_flag=True, help="Disables running the background tasks after the path has been opened")
+@click.option("quiet", "--quiet", default=False, is_flag=True, help="Disables printing infromation to the terminal")
+@click.option("jsonOutput", "--json", default=False, is_flag=True, help="Returns data in a JSON format")
 @click.pass_context
 def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=True):
     """Open a specific id"""
@@ -146,9 +146,9 @@ def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=Tru
 
 
 @cli.command("list")
-@click.option("id", "--id")
-@click.option("jsonOutput", "--json", default=False, is_flag=True)
-@click.option("quiet", "--quiet", default=False, is_flag=True)
+@click.option("id", "--id", help="The parent ID of the IDs to be displayed")
+@click.option("jsonOutput", "--json", default=False, is_flag=True, help="Returns the data in a JSON format")
+@click.option("quiet", "--quiet", default=False, is_flag=True, help="Will not print anything")
 @click.pass_context
 def listIDs(ctx, id, jsonOutput, quiet):
     "List all the IDs in the file system"
@@ -195,8 +195,8 @@ def listIDs(ctx, id, jsonOutput, quiet):
 
 @cli.command("new")
 @click.option("id", "--id", help="The Parent ID for the new ID", prompt=True, default="")
-@click.option("title", "--title", prompt=True, type=str)
-@click.option("force", "--force", is_flag=True, default=False)
+@click.option("title", "--title", prompt=True, type=str, help="The title for the new ID")
+@click.option("force", "--force", is_flag=True, default=False, help="Forces the change without asking for confirmation")
 @click.pass_context
 def createNewID(ctx, id, title, force, doReccurance=True):
     "Generate a new ID and Associated Folder"
@@ -291,7 +291,6 @@ def createNewID(ctx, id, title, force, doReccurance=True):
             except Exception:
                 pass
         
-        click.echo(f"CHILD COUNT {childrenCount}") 
         newID = ""
         if parentID.idType == "area":
             newID = f"{parentID.numericalID[0]}{childrenCount+1}"
@@ -340,9 +339,9 @@ def createNewID(ctx, id, title, force, doReccurance=True):
 
 @cli.command("modify")
 @click.argument("id")
-@click.option("parameter", "--parameter", type=click.Choice(['title', 'path'], case_sensitive=False), prompt=True)
-@click.option("newValue", "--value", type=str, prompt=True)
-@click.option("force", "--force", is_flag=True, default=False)
+@click.option("parameter", "--parameter", type=click.Choice(['title', 'path'], case_sensitive=False), prompt=True, help="The parameter to be modified")
+@click.option("newValue", "--value", type=str, prompt=True, help="The new value for this given parameter")
+@click.option("force", "--force", is_flag=True, default=False, help="Force the change without asking for confirmation")
 @click.pass_context
 def modifyID(ctx, id, parameter, newValue, force):
     "Modify the path or metadata of a specific ID"

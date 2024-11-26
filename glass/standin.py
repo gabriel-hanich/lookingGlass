@@ -63,10 +63,10 @@ def getStandIns(path):
 # Handle Standin files
 @click.command("new")
 @click.argument("id")
-@click.option("title", "--title", type=str, prompt=True)
-@click.option("description", "--description", type=str, prompt=True)
-@click.option("url", "--path", type=str, prompt=True)
-@click.option("people", "--people", type=str, prompt=True, default="me")
+@click.option("title", "--title", type=str, prompt=True, help="The title of the standin file")
+@click.option("description", "--description", type=str, prompt=True, help="A brief description of the file")
+@click.option("url", "--path", type=str, prompt=True, help="The Path/URL the file should point to")
+@click.option("people", "--people", type=str, prompt=True, default="me", help="People who can contribute/access the linked resouerce")
 @click.pass_context
 def newStandIn(ctx, id, title, description, url, people, doReccurance=True):
     "Create a new Stand in File"
@@ -144,6 +144,9 @@ def viewStandIn(ctx, id, doReccurance=True):
 
     standIns = getStandIns(parentID.path)
     titles = [standIn.title for standIn in standIns]
+    if len(titles) == 0:
+        click.echo(click.style(f"There are no standins within the ID {id}", fg="red"))
+        return
     selectedTitle = util.selectFromList(titles)
     for standInFile in standIns:
         if standInFile.title == selectedTitle:
@@ -191,5 +194,6 @@ def modifyStandIn(ctx, id):
 @click.command("open")
 @click.argument("path")
 def openStandIn(path):
+    "Open the Standin File at a given Path"
     thisFile = StandInFile(path, True)
     thisFile.open()
