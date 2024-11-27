@@ -1,5 +1,6 @@
 from importlib.metadata import version
 import os
+import time
 import click
 from . import constants
 import json
@@ -79,7 +80,7 @@ def buildConfig(ctx):
         "excluded": "A list of folder names that are to be excluded"
 
     }
-    click.echo("Welcome to Glass, Please setup a few configuration variables")
+    click.echo("Welcome to Looking Glass, Please setup a few configuration variables")
     dataDict = {}
     for key in configKeys:
         click.echo(f"{click.style(key, fg='blue')} - {descriptions[key]}")
@@ -102,17 +103,41 @@ def buildConfig(ctx):
         newExcludedFolders.append(val.strip().lower())
     dataDict["excluded_folders"] = newExcludedFolders
 
-    if click.confirm("Are you happy with these values"):
-        with open(f"{__file__.replace('configmanager.py', '')}constants.py", "w") as configFile:
-            configFile.write("CONSTANTS = {\n")
-            for subKey in dataDict.keys():
-                if subKey == "excluded_folders":
-                    configFile.write(f'    "{subKey}": {dataDict[subKey]},\n')
-                elif subKey == "storage_locations" or subKey == "revision_labels":
-                    configFile.write(f'    "{subKey}": {dataDict[subKey]},\n')
-                else:
-                    configFile.write(f'    "{subKey}": "{dataDict[subKey]}",\n')
-            configFile.write("}")
-        click.echo("Completed")
-    else:
+    if not click.confirm("Are you happy with these values"):
+        click.echo("Canceled")
         return
+    
+    # Write the config settings to configManager
+    with open(f"{__file__.replace('configmanager.py', '')}constants.py", "w") as configFile:
+        configFile.write("CONSTANTS = {\n")
+        for subKey in dataDict.keys():
+            if subKey == "excluded_folders":
+                configFile.write(f'    "{subKey}": {dataDict[subKey]},\n')
+            elif subKey == "storage_locations" or subKey == "revision_labels":
+                configFile.write(f'    "{subKey}": {dataDict[subKey]},\n')
+            else:
+                configFile.write(f'    "{subKey}": "{dataDict[subKey]}",\n')
+        configFile.write("}")
+
+    # Create the necessary files into the .glass folder
+    os.mkdir(f"{dataDict['root_path']}/.glass")
+    os.mkdir(f"{dataDict['root_path']}/.glass/data")
+    os.mkdir(f"{dataDict['root_path']}/.glass/backups")
+    os.mkdir(f"{dataDict['root_path']}/.glass/logs")
+
+
+    driveData = {
+        "generated": time.time(),
+        "version": version('glass'),
+        "drives": [
+            {
+                "letter": "A",
+                "label": "Local Storage",
+                "path": dataDict['root_path']
+            }
+        ]
+    }
+    with open(f"{dataDict['root_path']}/.glass/data/drives.json", "w") as driveFile:
+        json.dump(driveData, driveFile)
+
+    click.echo("Completed")

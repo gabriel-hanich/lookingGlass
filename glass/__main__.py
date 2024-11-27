@@ -6,24 +6,29 @@ from importlib.metadata import version
 import json
 import ctypes
 
+from . import backup
+from . import configmanager
+from . import constants
+from . import drivemanager
 from . import project
 from . import standin
-from . import util
 from . import tools
-from . import constants
-from . import configmanager
-
-# TODO
-# - [X] Come up with better method for managing config stuff
-# - [X] Integrate other file systems (A, B, C, D, etc)
-# - [X] Ensure --help messages are present & succint (UPTO diagram)
-# - [X] Either delete workspace stuff or write it
+from . import util
 
 
 @click.group()
 @click.pass_context
 def cli(ctx):
     appConstants = constants.CONSTANTS
+
+    if appConstants["root_path"] == "EMPTY" or appConstants["root_path"] == "":
+        if "glass config build" in " ".join(sys.argv):
+            return
+        elif "glass about" in " ".join(sys.argv):
+            return
+        click.echo(click.style("WARNING, The config settings are currently empty", fg='red'))
+        click.echo("Run " + click.style("glass config build", fg='blue') + " to activate the startup wizard")
+        exit()
 
     try: 
         idDict = util.loadIDDict(appConstants["root_path"])
@@ -37,7 +42,7 @@ def cli(ctx):
                 version('glass'),
             )
         except KeyError:
-            configmanager.buildConfig()
+            ctx.invoke(configmanager.buildConfig)
             return
 
     ctx.obj = {
@@ -65,63 +70,70 @@ def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=Tru
         id = id.replace("/", "")
         id = id.replace('"', "")
     
-    searchID = util.pathID(id, "", True)
-    if searchID.storageLocation == "A":
-        try: # Find Path that corresponds to ID
-            openPath = ctx.obj['ids'][searchID.numericalID].path
-        except KeyError: # If ID Doesn't exist
-            # Run the code a second time to allow the background check to find new IDs
-            if doReccurance:
-                if not jsonOutput and not quiet:
-                    click.echo("ID is not present in the cached file, regenerating Cache")
-                ctx.invoke(tools.manuallyDoBackgroundTasks)
-                ctx.obj['ids'] = util.loadIDDict(ctx.obj['root']) # Load the JSON file into the context again
-                
-                # Re-run current command with the new context 
-                ctx.invoke(openID, id=id, printPath=printPath, quiet=quiet, jsonOutput=jsonOutput, doReccurance=False) 
-                return
+    if len(id) == 1: # If the ID is just a letter
+        ctx.obj["drives"] = drivemanager.loadDrives(ctx.obj["root"])
+        try:
+            openPath = ctx.obj["drives"][id.upper()]['path']
+        except KeyError:
+            raise click.ClickException(f"The provided drive {id} is not registered\nRegister it with " + click.style(f"glass drive new {id}", fg='blue'))
+    else:
+        searchID = util.pathID(id, "", True)
+        if searchID.storageLocation == "A":
+            try: # Find Path that corresponds to ID
+                openPath = ctx.obj['ids'][searchID.numericalID].path
+            except KeyError: # If ID Doesn't exist
+                # Run the code a second time to allow the background check to find new IDs
+                if doReccurance:
+                    if not jsonOutput and not quiet:
+                        click.echo("ID is not present in the cached file, regenerating Cache")
+                    ctx.invoke(tools.manuallyDoBackgroundTasks)
+                    ctx.obj['ids'] = util.loadIDDict(ctx.obj['root']) # Load the JSON file into the context again
+                    
+                    # Re-run current command with the new context 
+                    ctx.invoke(openID, id=id, printPath=printPath, quiet=quiet, jsonOutput=jsonOutput, doReccurance=False) 
+                    return
 
-            else:
-                # This runs if the function has been called recursively
+                else:
+                    # This runs if the function has been called recursively
+                    if jsonOutput:
+                        click.echo(json.dumps({
+                        "status": "failure",
+                        "data": "",
+                        "reason ": f"{id} is not available within {ctx.obj['root']}"
+                        }))
+                    else:
+                        click.echo(f"{id} is not available within {ctx.obj['root']}")
+                    return
+        else:
+            try:
+                alternateIDs = util.loadIDDict(ctx.obj["root"], searchID.storageLocation)
+            except FileNotFoundError:
                 if jsonOutput:
                     click.echo(json.dumps({
-                    "status": "failure",
-                    "data": "",
-                    "reason ": f"{id} is not available within {ctx.obj['root']}"
-                    }))
+                        "status": "failure",
+                        "data": "",
+                        "reason ": f"{searchID.storageLocation} is not a tracked storage location in the filesystem"
+                        }))
+                    return
                 else:
-                    click.echo(f"{id} is not available within {ctx.obj['root']}")
-                return
-    else:
-        try:
-            alternateIDs = util.loadIDDict(ctx.obj["root"], searchID.storageLocation)
-        except FileNotFoundError:
-            if jsonOutput:
-                click.echo(json.dumps({
-                    "status": "failure",
-                    "data": "",
-                    "reason ": f"{searchID.storageLocation} is not a tracked storage location in the filesystem"
-                    }))
-                return
-            else:
-                raise click.ClickException(f"There is no alternate ID file for the Storage Location provided {searchID.storageLocation}")
-        try:
-            openPath = alternateIDs[id].path
-        except KeyError:
-            if jsonOutput:
-                click.echo(json.dumps({
-                    "status": "failure",
-                    "data": "",
-                    "reason ": f"{id} is not available within storage drive {searchID.storageLocation}"
-                    }))
-                return
-            else:
-                raise click.ClickException(f"The Storage Location {ctx.obj['storageLocations'][searchID.storageLocation]} ({searchID.storageLocation}) does not contain the provided ID")
+                    raise click.ClickException(f"There is no alternate ID file for the Storage Location provided {searchID.storageLocation}")
+            try:
+                openPath = alternateIDs[id].path
+            except KeyError:
+                if jsonOutput:
+                    click.echo(json.dumps({
+                        "status": "failure",
+                        "data": "",
+                        "reason ": f"{id} is not available within storage drive {searchID.storageLocation}"
+                        }))
+                    return
+                else:
+                    raise click.ClickException(f"The Storage Location {ctx.obj['storageLocations'][searchID.storageLocation]} ({searchID.storageLocation}) does not contain the provided ID")
 
     if printPath == False and jsonOutput == False:
         if openPath[0:5] == "msg:\\":
-            ctypes.windll.user32.MessageBoxW(0, openPath[6:], f"Path for {id}", 0)
-            click.echo(openPath[6:])
+            ctypes.windll.user32.MessageBoxW(0, openPath[5:], f"Path for {id}", 0)
+            click.echo(openPath[5:])
         else:
             launchSuccess = click.launch(openPath)
             if launchSuccess == 1: # If the folder cannot be launcged
@@ -201,9 +213,10 @@ def listIDs(ctx, id, jsonOutput, quiet):
 def createNewID(ctx, id, title, force, doReccurance=True):
     "Generate a new ID and Associated Folder"
 
+
     numbers = re.compile("[0-9]")
-    if id == "" or (not numbers.match(id[0]) and len(id) == 1):
-        parentID = "" # If the user wishes to create a new area
+    if id == "" or (not numbers.match(id[0]) and len(id) == 1): # If the user wishes to create a new area
+        parentID = "" 
         # Determine number of areas
         childrenCount = 0
         try:
@@ -248,6 +261,16 @@ def createNewID(ctx, id, title, force, doReccurance=True):
             os.mkdir(newPath)
             click.echo("Created new ID!")
         else:
+            # Ensure the file system exists
+            ctx.obj["drives"] = drivemanager.loadDrives(ctx.obj["root"])
+            if id not in ctx.obj["drives"].keys():
+                click.echo(click.style(f"WARNING, The provided filesystem ({id}) is not registered", fg='red'))
+                click.echo("You can register it using " + click.style(f"glass drive new {id} [LABEL] [PATH]", fg="blue"))
+                if not click.confirm("Do you want to continue anyway?"):
+                    click.echo("Canceled")
+                    return
+
+
             idDict[newID] = util.pathID(newID, newPath, True, desc=title)
             newIDList = [idDict[id] for id in idDict.keys()]
             util.exportIDlist(newIDList, os.path.join(ctx.obj["root"], f".glass/data/IDPaths{id}.json"))
@@ -255,15 +278,14 @@ def createNewID(ctx, id, title, force, doReccurance=True):
                 
     else:
         try: # Find Path that corresponds to ID
-            # If the ID points to an alternative storageLocation
             isPrimaryStorage = True
             idDict = ctx.obj['ids']
-            if not numbers.match(id[0]) and id[0] != "A":
+            if not numbers.match(id[0]) and id[0] != "A": # If the ID points to an alternative storageLocation
                 idDict = util.loadIDDict(ctx.obj["root"], id[0])
                 isPrimaryStorage = False
             parentID = idDict[id]
         
-        except KeyError: # If ID Doesn't exist
+        except KeyError: # If Parent ID Doesn't exist
             # Run the code a second time to allow the background check to find new IDs
             if doReccurance and isPrimaryStorage:
                 click.echo("ID is not present in the cached file, regenerating Cache")
@@ -282,13 +304,17 @@ def createNewID(ctx, id, title, force, doReccurance=True):
         # Find number of child IDs
         childrenCount = 0
         idTypes = ["area", "category", "subfolder", "project", "project-child"]
+        if isPrimaryStorage:
+            searchID = id
+        else:
+            searchID = id[1:]
         for idText in idDict:
             thisID = idDict[idText]
             try:
-                if id[1:] == thisID.getHigherLevel(parentID.idType):  # If the ID is a child of the parentID
+                if searchID == thisID.getHigherLevel(parentID.idType):  # If the ID is a child of the parentID
                     if idTypes.index(thisID.idType) - idTypes.index(parentID.idType) == 1: # If the child ID is a DIRECT child of the parentID
                         childrenCount += 1
-            except Exception:
+            except Exception as e:
                 pass
         
         newID = ""
@@ -329,6 +355,16 @@ def createNewID(ctx, id, title, force, doReccurance=True):
         if isPrimaryStorage:
             os.mkdir(f"{parentID.path}\{newID} - {title}")
         else:
+            # Ensure the storage System is registered
+            # Ensure the file system exists
+            ctx.obj["drives"] = drivemanager.loadDrives(ctx.obj["root"])
+            if id[0] not in ctx.obj["drives"].keys():
+                click.echo(click.style(f"WARNING, The provided filesystem ({id}) is not registered", fg='red'))
+                click.echo("You can register it using " + click.style(f"glass drive new {id} [LABEL] [PATH]", fg="blue"))
+                if not click.confirm("Do you want to continue anyway?"):
+                    click.echo("Canceled")
+                    return
+
             idDict[newID] = util.pathID(newID, newPath, True, desc=title)
             newIDList = [idDict[idPath] for idPath in idDict]
             util.exportIDlist(newIDList, os.path.join(ctx.obj["root"], f".glass/data/IDPaths{id[0]}.json"))
@@ -391,8 +427,6 @@ def projectCLI(ctx):
 
 cli.add_command(tools.generateMermaidDiagram)
 cli.add_command(tools.manuallyDoBackgroundTasks)
-cli.add_command(tools.generateMetaData)
-cli.add_command(tools.duplicateStorage)
 cli.add_command(tools.printAbout)
 
 projectCLI.add_command(project.viewProj)
@@ -409,13 +443,29 @@ standInCLI.add_command(standin.modifyStandIn)
 standInCLI.add_command(standin.viewStandIn)
 standInCLI.add_command(standin.openStandIn)
 
-@cli.group()
+@cli.group("config")
 def config():
     """Manage App Config"""
 
 config.add_command(configmanager.viewConfig)
 config.add_command(configmanager.modifyConfig)
 config.add_command(configmanager.buildConfig)
+
+@cli.group("backup")
+def backupManager():
+    """Create and track backups"""
+
+backupManager.add_command(backup.generateMetaData)
+backupManager.add_command(backup.viewBackups)
+
+@cli.group("drive")
+def backupManager():
+    """Create and Manage drives"""
+
+backupManager.add_command(drivemanager.newDrive)
+backupManager.add_command(drivemanager.modifyDriveData)
+backupManager.add_command(drivemanager.viewDrives)
+backupManager.add_command(tools.duplicateStorage)
 
 if __name__ == '__main__':
     cli()

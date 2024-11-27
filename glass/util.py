@@ -259,11 +259,10 @@ def assignRevisions(idList):
     
     return idList
 
-
 def readFileSystem(logFile, rootPath, excludedList):
     # Reads the files from the file system and save paths to each ID
     indent = " "
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO LOADING IDs\n")
+    logFile.write(f"{datetime.now().isoformat()}{indent}BEGIN Loading IDs\n")
 
     indent = " "*3
     IDList, invalidIDList = generateIDList(rootPath, excludedList)
@@ -301,11 +300,35 @@ def readFileSystem(logFile, rootPath, excludedList):
     logFile.write(f"{datetime.now().isoformat()}{indent}INFO Writing data to {rootPath}/.glass/data/IDPaths.json\n")
     exportIDlist(IDList, os.path.join(rootPath, ".glass/data/IDPaths.json"))
     indent = " "*1
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Completed IDs\n")
+    logFile.write(f"{datetime.now().isoformat()}{indent}END Loading IDs\n")
 
     return IDList
 
+def checkDrives(logFile, rootPath):
+    # Checks that the drives listed in the data folder match up with those in the data.json file
+    indent = " "*1
+    logFile.write(f"{datetime.now().isoformat()}{indent}BEGIN Comparing Drives\n")
+    driveData = {}
+    with open(f"{rootPath}/.glass/data/drives.json", "r") as driveFile:
+        fileData = json.load(driveFile)
+        driveList = fileData["drives"]
 
+    indent = " "*3
+    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Found {len(driveList)} Drives in the json File\n")
+    indent = " "*5
+    driveLetters = [item['letter'] for item in driveList]
+    for path in os.listdir(f"{rootPath}/.glass/data/"):
+        driveLetter = path.split(".")[0][-1]
+        # Because the central IDList doesn't end in A
+        if driveLetter == "s":
+            driveLetter = "A"
+        
+        if driveLetter not in driveLetters:
+            logFile.write(f"{datetime.now().isoformat()}{indent}WARN Drive Letter {driveLetter} has an IDList file but is NOT in drives.json file\n")
+
+
+    indent = " "*1
+    logFile.write(f"{datetime.now().isoformat()}{indent}END Comparing Drives\n")
 
 def doBackgroundTasks(rootPath, metaPath, excludedList, command, version):
     indent = " "*1
@@ -317,11 +340,21 @@ def doBackgroundTasks(rootPath, metaPath, excludedList, command, version):
 
     # Write Metadata to Log file
     logFile = open(os.path.join(rootPath, ".glass/logs/background.txt"), "w+")
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Starting BACKGROUND TASKS\n")
+    logFile.write(f"{datetime.now().isoformat()}{indent}BEGIN Background Tasks\n")
     logFile.write(f"{datetime.now().isoformat()}{indent}INFO version={version}\n")
     logFile.write(f"{datetime.now().isoformat()}{indent}INFO command={command}\n")
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO reading data from {rootPath}\n")
+    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Reading Data from {rootPath}\n")
 
+    # Compare Drives
+    try:
+        checkDrives(logFile, rootPath)
+    except Exception as e:
+        logFile.write(f"{datetime.now().isoformat()}{indent} ERROR in Drive Comparator\n")
+        indent = " "*5
+        logFile.write(f"{datetime.now().isoformat()}{indent} ERROR {e}\n")
+        return
+
+    
     # Save IDs
     try:
         IDList = readFileSystem(logFile, rootPath, excludedList)
@@ -341,7 +374,7 @@ def doBackgroundTasks(rootPath, metaPath, excludedList, command, version):
         return
     
     indent = " "*1
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Completed BACKGROUND TASKS\n")
+    logFile.write(f"{datetime.now().isoformat()}{indent}END Background Tasks\n")
 
 def selectFromList(list):
     # Allow the user to select an item from a list
@@ -354,4 +387,3 @@ def selectFromList(list):
             return selectedItem 
         except IndexError:
             click.echo("This number is invalid")
-        

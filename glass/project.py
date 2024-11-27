@@ -225,7 +225,7 @@ def generateMetaFile(metaRoot, templatePath, id, title, revisionStage, revisionN
 def readProjectsFileSystem(logFile, metaPath, IDList):
     # Read the File System to find the most recent revision of each project and update metadata file
     indent = " "*1
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO LOADING PROJECTS\n")
+    logFile.write(f"{datetime.now().isoformat()}{indent}BEGIN Loading Projects\n")
     indent = " "*3
     
     validProjects, invalidProjects = generateProjectList(IDList, metaPath)
@@ -252,7 +252,7 @@ def readProjectsFileSystem(logFile, metaPath, IDList):
         logFile.write(f"{datetime.now().isoformat()}{indent}INFO Modified {metaFile}\n")
 
     indent = " "*1
-    logFile.write(f"{datetime.now().isoformat()}{indent}INFO Completed PROJECTS\n")
+    logFile.write(f"{datetime.now().isoformat()}{indent}END Loading Projects\n")
 
 # Manage the users projects
 @click.command("new")

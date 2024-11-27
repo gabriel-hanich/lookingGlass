@@ -1,12 +1,10 @@
-import json
 import os
 import glass.__main__ as main
+from . import drivemanager
 from importlib.metadata import version
 import sys
-import time
 import click
 import glass.util as util
-import hashlib
 
 @click.command("diagram")
 @click.option("storageLocation", "--storage", type=str, default="A", help="The filestorage location that will be scanned (default=A)")
@@ -58,25 +56,6 @@ def manuallyDoBackgroundTasks(ctx):
             version('glass'),
         )
     
-@click.command("encode")
-@click.pass_context
-def generateMetaData(ctx):
-    "Generates a file that can be used to track changes"
-    titles = ctx.invoke(main.listIDs, quiet=True, jsonOutput=False)
-    m = hashlib.sha256()
-    m.update(str.encode(" ".join(titles["titles"])))
-    titleHash = m.hexdigest()
-    fileData = {
-        "generated": time.time(),
-        "version": version("glass"),
-        "id_count": len(ctx.obj["ids"]),
-        "fileHash": str(titleHash),
-        "filesystem": titles["titles"]
-    }
-
-    with open(f"{ctx.obj['root']}/identifier.json", "w") as outputFile:
-        json.dump(fileData, outputFile, indent=2)
-    click.echo(f"Generated File Hash at {ctx.obj['root']}/identifier.json")
 
 @click.command("duplicate")
 @click.argument("parentstorage")
@@ -84,8 +63,24 @@ def generateMetaData(ctx):
 @click.option("preserve", "--preserve", is_flag=True, help="Preserves the paths from the parent", default=False)
 @click.pass_context
 def duplicateStorage(ctx, parentstorage, childstorage, preserve):
-    "Duplicate the ID structure from the parent storage to child"
+    """Duplicate the ID structure from the parent storage to child"""
     
+    # Ensure both the parent and the child storage have been registered already
+    ctx.obj["drives"] = drivemanager.loadDrives(ctx.obj["root"])
+    missingStorage = ""
+    if parentstorage not in ctx.obj["drives"].keys():
+        missingStorage = "Parent"
+    if childstorage not in ctx.obj["drives"].keys():
+        missingStorage = "Child"
+
+    if missingStorage != "":
+        click.echo(click.style(f"WARNING, The {missingStorage} Storage ({parentstorage if missingStorage == 'Parent' else childstorage}) isn't registered in the app", fg="red"))
+        click.echo("You can register it using " + click.style(f"glass drive new {parentstorage if missingStorage == 'Parent' else childstorage} [LABEL] [PATH]", fg="blue"))
+        if not click.confirm("Do you want to continue?"):
+            click.echo("Canceled")
+            return
+
+
     if parentstorage == "A":
         parentDict = ctx.obj["ids"]
     else:
@@ -159,4 +154,5 @@ def printAbout():
     click.echo("Developed by Gabriel Hanich, 2024")
     click.echo("Source Code Available at https://github.com/gabriel-hanich/lookingGlass/")
     click.echo(f"Files located at {__file__}")
-    click.echo(click.style("Run "))
+    click.echo("run " + click.style("glass config build", fg='blue') + " to Initialise the application")
+
