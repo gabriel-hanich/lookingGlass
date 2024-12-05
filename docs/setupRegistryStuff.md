@@ -22,12 +22,11 @@ Then go back to the left-hand file pane. Right click on the key you made (called
 Once you have opened the `command` key, change the value of the default key to the following:
 
 ```
-"{Python Path}" "{main.py Path}" "%1"
+"{PATH TO BAT FILE}" \"%1\""
 ```
 
 Note that the `"` are necessary, and the `{` is to be deleted. Where:
-- `{Python Path}` is the path to your installation of python. You can use the command `where python` inside a normal command prompt to find this value
--  `{main.py Path}` is the path to the main.py file in this repo
+- `{PATH TO BAT FILE}` is the path to the `idOpener.bat` file
 
 You must include the `"%1"` to allow the arguments of the URI to be passed to the Python File. 
 
