@@ -65,6 +65,8 @@ def cli(ctx):
 @click.pass_context
 def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=True):
     """Open a specific id"""
+
+    # If the command is called via URI, remove the URI header
     if 'glass://' in id:
         id = id[7:]
         id = id.replace("/", "")
@@ -75,7 +77,9 @@ def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=Tru
         try:
             openPath = ctx.obj["drives"][id.upper()]['path']
         except KeyError:
+            # If the drive doesn't exist
             raise click.ClickException(f"The provided drive {id} is not registered\nRegister it with " + click.style(f"glass drive new {id}", fg='blue'))
+    
     else:
         searchID = util.pathID(id, "", True)
         if searchID.storageLocation == "A":
@@ -94,7 +98,7 @@ def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=Tru
                     return
 
                 else:
-                    # This runs if the function has been called recursively
+                    # This runs if the function has been called recursively and was unable to find a path
                     if jsonOutput:
                         click.echo(json.dumps({
                         "status": "failure",
@@ -104,7 +108,7 @@ def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=Tru
                     else:
                         click.echo(f"{id} is not available within {ctx.obj['root']}")
                     return
-        else:
+        else: # If the drive location is NOT "A"
             try:
                 alternateIDs = util.loadIDDict(ctx.obj["root"], searchID.storageLocation)
             except FileNotFoundError:
@@ -459,13 +463,13 @@ backupManager.add_command(backup.generateMetaData)
 backupManager.add_command(backup.viewBackups)
 
 @cli.group("drive")
-def backupManager():
+def driveManager():
     """Create and Manage drives"""
 
-backupManager.add_command(drivemanager.newDrive)
-backupManager.add_command(drivemanager.modifyDriveData)
-backupManager.add_command(drivemanager.viewDrives)
-backupManager.add_command(tools.duplicateStorage)
+driveManager.add_command(drivemanager.newDrive)
+driveManager.add_command(drivemanager.modifyDriveData)
+driveManager.add_command(drivemanager.viewDrives)
+driveManager.add_command(tools.duplicateStorage)
 
 if __name__ == '__main__':
     cli()

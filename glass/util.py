@@ -100,7 +100,7 @@ class pathID:
                     self.descriptor = "Invalid Project ID, Either you have a 2 digit version number or no Revision Letter"
         
     def validatePath(self):
-        # Determine if the path is valid given the folder
+        # Ensure the path (as read from the file name) matches the folder it is within
         splitPath = self.path.split("\\")
         rootIndex = -1 # The index in the list of the root folder
         levels = list(self.levelDict.keys())
@@ -123,7 +123,7 @@ class pathID:
         return {"validPath": True, "desc": "Correct Path", "path": self.path}
 
     def getHigherLevel(self, level):
-       # Get the ID of the object of it's higher level (i.e the area a given subfolder is within)
+       # Get the ID of the level specified that this pathID falls within
         if self.idType == "invalid":
             raise Exception(f"Error, Cannot get the higher level ID of an invalid ID")
         if self.levelDict[self.idType] < self.levelDict[level]:
@@ -139,6 +139,7 @@ class pathID:
             return f"{self.numericalID[0:8]}"
 
     def display(self, storageLabels, revisionLabels):
+        # Display the PathID in a human-readable format
         print(f"ID: {self.idText}")
         print(f"Desc: {self.descriptor}")
         print(f"Type: {self.idType}")
@@ -152,14 +153,16 @@ class pathID:
    
 
 def generateIDList(fsPath, excludedList):
-    # Checks to find all the IDs
+    # Checks to find all the IDs in the root directory and subfolders
+    # Does not search within folders in the excluded list
     # TODO Maybe recursion?
 
+    # Searches for the children of each ID, going down a level each time
     IDList, invalidIDList = getSubIDs(fsPath, excludedList)
     for IDType in ["area", "category", "subfolder", "project", "project-child"]:
         for itemID in IDList:
             if itemID.idType == IDType:
-                validIDs, invalidIDs = getSubIDs(itemID.path, excludedList)
+                validIDs, invalidIDs = getSubIDs(itemID.path, excludedList, itemID)
                 IDList = IDList + validIDs
 
                 # Paths with subfolders cannot be invalid
@@ -170,7 +173,7 @@ def generateIDList(fsPath, excludedList):
 
     return IDList, invalidIDList
 
-def getSubIDs(fsPath, excludedList):
+def getSubIDs(fsPath, excludedList, parentID=None):
     # Find all subIDs in a path
     dirStructure = os.scandir(fsPath)
     ids, invalidIDs = [], []
@@ -178,8 +181,15 @@ def getSubIDs(fsPath, excludedList):
         try:
             endText = folder.path.split("\\")[-1]
             if endText.lower() not in excludedList:
-                areaID, desc = endText.split(" - ")
-                thisID = pathID(areaID, folder.path, doValidation=True, desc=desc)
+                idText, desc = endText.split(" - ")
+
+                # If the parentID is a project, then the folder may only contain the revision letter
+                # Hence, append the ID of the parent to flesh it out
+                if parentID != None:
+                    if parentID.idType == "project" and len(idText) == 2:
+                        idText = parentID.idText + idText
+
+                thisID = pathID(idText, folder.path, doValidation=True, desc=desc)
                 if thisID.idType != "invalid":
                     ids.append(thisID)
                 else:
