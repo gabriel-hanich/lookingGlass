@@ -119,10 +119,10 @@ def duplicateStorage(ctx, parentstorage, childstorage, preserve):
                 click.echo(f"{'Descriptor':<20} | {parentID.descriptor:<20} | {childID.descriptor:<20}")
                 click.echo(f"Given that the parent ID has a path that points to\n{parentID.path}")
                 childID.path = click.prompt("What should the child ID point to?", type=str)
-                childDict[childID.idText] = childID
-
-                childIDList = [childDict[idPath] for idPath in childDict]
-                util.exportIDlist(childIDList, os.path.join(ctx.obj["root"], f".glass/data/IDPaths{childstorage}.json"))
+                if childID.path.lower() != "pass":
+                    childDict[childID.idText] = childID
+                    childIDList = [childDict[idPath] for idPath in childDict]
+                    util.exportIDlist(childIDList, os.path.join(ctx.obj["root"], f".glass/data/IDPaths{childstorage}.json"))
             modifiedIDs += 1
     
     if preserve:

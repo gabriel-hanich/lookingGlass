@@ -212,9 +212,10 @@ def listIDs(ctx, id, jsonOutput, quiet):
 @cli.command("new")
 @click.option("id", "--id", help="The Parent ID for the new ID", prompt=True, default="")
 @click.option("title", "--title", prompt=True, type=str, help="The title for the new ID")
+@click.option("noIncrement", "--no-increment", is_flag=True, default=False, help="The provided ID will act as the created ID, NOT the Parent")
 @click.option("force", "--force", is_flag=True, default=False, help="Forces the change without asking for confirmation")
 @click.pass_context
-def createNewID(ctx, id, title, force, doReccurance=True):
+def createNewID(ctx, id, title, noIncrement, force, doReccurance=True):
     "Generate a new ID and Associated Folder"
 
 
@@ -239,7 +240,7 @@ def createNewID(ctx, id, title, force, doReccurance=True):
             raise click.ClickException(f"There are too many Areas within this File system, Cannot create any more")
 
         newID = f"{id}{childrenCount+1}0"
-        newPath = f"{ctx.obj['root']}\{newID} - {title}"
+        newPath = f"{ctx.obj['root']}/{newID} - {title}"
         if not(id == "" or id == "A"): # If the new Area is in the A filesystem
             newPath = click.prompt("Which path should this ID point to?")
             try:
@@ -281,30 +282,53 @@ def createNewID(ctx, id, title, force, doReccurance=True):
             click.echo("Created new ID!")
                 
     else:
-        try: # Find Path that corresponds to ID
+        if noIncrement:
             isPrimaryStorage = True
             idDict = ctx.obj['ids']
             if not numbers.match(id[0]) and id[0] != "A": # If the ID points to an alternative storageLocation
                 idDict = util.loadIDDict(ctx.obj["root"], id[0])
                 isPrimaryStorage = False
-            parentID = idDict[id]
-        
-        except KeyError: # If Parent ID Doesn't exist
-            # Run the code a second time to allow the background check to find new IDs
-            if doReccurance and isPrimaryStorage:
-                click.echo("ID is not present in the cached file, regenerating Cache")
-                ctx.invoke(tools.manuallyDoBackgroundTasks)
-                ctx.obj['ids'] = util.loadIDDict(ctx.obj['root']) # Load the JSON file into the context again
-                
-                # Re-run current command with the new context 
-                ctx.invoke(createNewID, id=id, title=title, doReccurance=False) 
+            tempID = util.pathID(id, "", True)
+            parentNumber = tempID.levelDict[tempID.idType] - 1
+            for key in tempID.levelDict.keys():
+                if tempID.levelDict[key] == parentNumber:
+                    parentIDText = tempID.getHigherLevel(key)
+                    if not isPrimaryStorage:
+                        parentIDText = id[0] + parentIDText
+                    break
+            try:
+                parentID = idDict[parentIDText]
+            except KeyError:
+                raise click.ClickException(f"The Parent ID {parentIDText} is not within the ID Dictionary")
+            
+            if id in idDict.keys():
+                raise click.ClickException(f"This ID {id} already exists within the Storage Dictionary")
 
-            else:
-                click.echo(f"{id} is not available within storage {id[0]}")
-                click.echo(click.style(f'glass new --id "" --title "{title}"', fg="blue"))
+        else:
+            try: # Find Path that corresponds to ID
+                isPrimaryStorage = True
+                idDict = ctx.obj['ids']
+                if not numbers.match(id[0]) and id[0] != "A": # If the ID points to an alternative storageLocation
+                    idDict = util.loadIDDict(ctx.obj["root"], id[0])
+                    isPrimaryStorage = False
+                parentID = idDict[id]
+
+            except KeyError: # If Parent ID Doesn't exist
+                # Run the code a second time to allow the background check to find new IDs
+                if doReccurance and isPrimaryStorage:
+                    click.echo("ID is not present in the cached file, regenerating Cache")
+                    ctx.invoke(tools.manuallyDoBackgroundTasks)
+                    ctx.obj['ids'] = util.loadIDDict(ctx.obj['root']) # Load the JSON file into the context again
+                    
+                    # Re-run current command with the new context 
+                    ctx.invoke(createNewID, id=id, title=title, doReccurance=False) 
+
+                else:
+                    click.echo(f"{id} is not available within storage {id[0]}")
+                    click.echo(click.style(f'glass new --id "" --title "{title}"', fg="blue"))
+                    return
                 return
-            return
-
+        
         # Find number of child IDs
         childrenCount = 0
         idTypes = ["area", "category", "subfolder", "project", "project-child"]
@@ -321,17 +345,22 @@ def createNewID(ctx, id, title, force, doReccurance=True):
             except Exception as e:
                 pass
         
-        newID = ""
-        if parentID.idType == "area":
-            newID = f"{parentID.numericalID[0]}{childrenCount+1}"
-            if childrenCount >= 9:
-                raise click.ClickException(f"There are too many Categories within this Parent ID, Cannot create any more")
-        if parentID.idType == "category":
-            if childrenCount >= 99:
-                raise click.ClickException(f"There are too many Subfolders within this Parent ID, Cannot create any more")
-            newID = f"{parentID.numericalID[0:2]}.{'{:02d}'.format(childrenCount+1)}"
+        if noIncrement:
+            newID = id
+            newID = newID[1:]
+        else:
+            newID = ""
+            if parentID.idType == "area":
+                newID = f"{parentID.numericalID[0]}{childrenCount+1}"
+                if childrenCount >= 9:
+                    raise click.ClickException(f"There are too many Categories within this Parent ID, Cannot create any more")
+            if parentID.idType == "category":
+                if childrenCount >= 99:
+                    raise click.ClickException(f"There are too many Subfolders within this Parent ID, Cannot create any more")
+                newID = f"{parentID.numericalID[0:2]}.{'{:02d}'.format(childrenCount+1)}"
 
-        newPath = f"{parentID.path}\{newID} - {title}"
+
+        newPath = f"{parentID.path}/{newID} - {title}"
         if not isPrimaryStorage:
             newPath = click.prompt("What should the path be?")
             newID = id[0] + newID
@@ -345,7 +374,7 @@ def createNewID(ctx, id, title, force, doReccurance=True):
                         title = click.prompt("New Title", default=ctx.obj["ids"][newID[1:]].descriptor)
             except KeyError:
                 pass
-
+        
 
         if not force:
             click.echo(f"About to create the following")
@@ -357,7 +386,7 @@ def createNewID(ctx, id, title, force, doReccurance=True):
                 return
         
         if isPrimaryStorage:
-            os.mkdir(f"{parentID.path}\{newID} - {title}")
+            os.mkdir(f"{parentID.path}/{newID} - {title}")
         else:
             # Ensure the storage System is registered
             # Ensure the file system exists
