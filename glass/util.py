@@ -41,7 +41,10 @@ class pathID:
             self.descriptor = "ID is too short"
             return
 
-        if not numbers.match(self.idText):
+        if len(self.idText) == 2:
+            self.idType = "child-project"
+            self.revision = self.idText[1:]
+        elif not numbers.match(self.idText):
             # If the first letter of the ID points to a different storage location
             self.storageLocation = self.idText[0]
             self.numericalID = self.idText[1:]
