@@ -4,7 +4,6 @@ import json
 import os
 import click
 from . import drivemanager
-import glass.__main__ as main
 import hashlib
 import time
 
@@ -14,6 +13,7 @@ import time
 @click.option("single", "--single", is_flag=True, help="Disables the creation of a local record of the backup in drive A")
 @click.pass_context
 def generateMetaData(ctx, drive, single):
+    import glass.__main__ as main
     "Generates a file that can be used to track changes"
     titles = ctx.invoke(main.listIDs, quiet=True, jsonOutput=False)
     m = hashlib.sha256()

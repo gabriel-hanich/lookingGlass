@@ -1,5 +1,4 @@
 import os
-import glass.__main__ as main
 from . import drivemanager
 from importlib.metadata import version
 import sys

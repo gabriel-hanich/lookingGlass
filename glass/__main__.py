@@ -65,7 +65,6 @@ def cli(ctx):
 @click.pass_context
 def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=True):
     """Open a specific id"""
-
     # If the command is called via URI, remove the URI header
     if 'glass://' in id:
         id = id[7:]
@@ -92,7 +91,6 @@ def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=Tru
                         click.echo("ID is not present in the cached file, regenerating Cache")
                     ctx.invoke(tools.manuallyDoBackgroundTasks)
                     ctx.obj['ids'] = util.loadIDDict(ctx.obj['root']) # Load the JSON file into the context again
-                    
                     # Re-run current command with the new context 
                     ctx.invoke(openID, id=id, printPath=printPath, quiet=quiet, jsonOutput=jsonOutput, doReccurance=False) 
                     return
@@ -133,18 +131,16 @@ def openID(ctx, id, printPath, noBackground, quiet, jsonOutput, doReccurance=Tru
                     return
                 else:
                     raise click.ClickException(f"The Storage Location {ctx.obj['storageLocations'][searchID.storageLocation]} ({searchID.storageLocation}) does not contain the provided ID")
-
     if printPath == False and jsonOutput == False:
         if openPath[0:5] == "msg:\\":
             ctypes.windll.user32.MessageBoxW(0, openPath[5:], f"Path for {id}", 0)
             click.echo(openPath[5:])
         else:
-            launchSuccess = click.launch(openPath)
+            launchSuccess = os.startfile(openPath)
             if launchSuccess == 1: # If the folder cannot be launcged
                 # If the original ID no longer exists, rerun the command after a new background scan
                 ctx.invoke(tools.manuallyDoBackgroundTasks)
                 ctx.obj['ids'] = util.loadIDDict(ctx.obj['root']) # Load the JSON file into the context again
-            
                 # Re-run current command with the new context 
                 ctx.invoke(openID, id=id, printPath=printPath, quiet=quiet, jsonOutput=jsonOutput, doReccurance=False) 
             
